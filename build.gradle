@@ -7,27 +7,26 @@ apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.yaml-rest-test'
 apply plugin: 'opensearch.pluginzip'
 
-def pluginName = 'rename'
-def pluginDescription = 'Custom plugin'
-def packagePath = 'org.example'
-def pathToPlugin = 'path.to.plugin'
-def pluginClassName = 'RenamePlugin'
-group = "RenameGroup"
+def pluginName = project.name
+def pluginDescription = 'Python as a scripting language for OpenSearch'
+def packagePath = 'org.opensearch'
+def pathToPlugin = 'python'
+def pluginClassName = 'PythonModulePlugin'
+group = "PythonModuleGroup"
 
-java {
-    targetCompatibility = JavaVersion.VERSION_21
-    sourceCompatibility = JavaVersion.VERSION_21
+
+opensearchplugin {
+  description pluginDescription
+  classname 'org.opensearch.python.PythonModulePlugin'
 }
 
-tasks.register("preparePluginPathDirs") {
-    mustRunAfter clean
-    doLast {
-        def newPath = pathToPlugin.replace(".", "/")
-        mkdir "src/main/java/$packagePath/$newPath"
-        mkdir "src/test/java/$packagePath/$newPath"
-        mkdir "src/yamlRestTest/java/$packagePath/$newPath"
-    }
-}
+
+
+// java {
+//     targetCompatibility = JavaVersion.VERSION_21
+//     sourceCompatibility = JavaVersion.VERSION_21
+// }
+
 
 publishing {
     publications {
