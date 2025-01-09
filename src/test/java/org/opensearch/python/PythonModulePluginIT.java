@@ -8,6 +8,7 @@
 package org.opensearch.python;
 
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope;
+
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;

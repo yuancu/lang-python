@@ -12,21 +12,17 @@ def pluginDescription = 'Python as a scripting language for OpenSearch'
 def packagePath = 'org.opensearch'
 def pathToPlugin = 'python'
 def pluginClassName = 'PythonModulePlugin'
-group = "PythonModuleGroup"
 
+
+ext {
+  // Do not fail on `javadoc` warning (ANTLR generated code)
+  failOnJavadocWarning = false
+}
 
 opensearchplugin {
   description pluginDescription
   classname 'org.opensearch.python.PythonModulePlugin'
 }
-
-
-
-// java {
-//     targetCompatibility = JavaVersion.VERSION_21
-//     sourceCompatibility = JavaVersion.VERSION_21
-// }
-
 
 publishing {
     publications {
@@ -34,18 +30,6 @@ publishing {
             pom {
               name = pluginName
               description = pluginDescription
-              licenses {
-                license {
-                  name = "The Apache License, Version 2.0"
-                  url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
-                }
-              }
-              developers {
-                developer {
-                  name = "OpenSearch"
-                  url = "https://github.com/opensearch-project/opensearch-plugin-template-java"
-                }
-              }
             }
         }
     }
@@ -100,6 +84,8 @@ task integTest(type: RestIntegTestTask) {
 }
 tasks.named("check").configure { dependsOn(integTest) }
 
+tasks.named("publishNebulaPublicationToMavenLocal").configure { dependsOn "generatePomFileForPluginZipPublication" }
+
 integTest {
     // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
     if (System.getProperty("test.debug") != null) {
@@ -128,4 +114,3 @@ task updateVersion {
         ant.replaceregexp(file:'build.gradle', match: '"opensearch.version", "\\d.*"', replace: '"opensearch.version", "' + newVersion.tokenize('-')[0] + '-SNAPSHOT"', flags:'g', byline:true)
     }
 }
-

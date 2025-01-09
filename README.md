@@ -1,6 +1,6 @@
 # Template for creating OpenSearch Plugins
 This Repo is a GitHub Template repository ([Learn more about that](https://docs.github.com/articles/creating-a-repository-from-a-template/)).
-Using it would create a new repo that is the boilerplate code required for an [OpenSearch Plugin](https://opensearch.org/blog/technical-posts/2021/06/my-first-steps-in-opensearch-plugins/). 
+Using it would create a new repo that is the boilerplate code required for an [OpenSearch Plugin](https://opensearch.org/blog/technical-posts/2021/06/my-first-steps-in-opensearch-plugins/).
 This plugin on its own would not add any functionality to OpenSearch, but it is still ready to be installed.
 It comes packaged with:
  - Integration tests of two types: Yaml and IntegTest.
@@ -51,7 +51,7 @@ For the **official plugins** that live within the OpenSearch organization (i.e. 
 For the **3rd party plugins** that are maintained as independent projects in separate GitHub repositories **with their own release cycles** the recommended naming convention should follow the same rules as official plugins with some exceptions and few follow-up checks:
 
 - Inclusion of the words like `OpenSearch` or `OpenSearch Dashboard` (and in reasonable cases even `plugin`) are welcome because they can increase the chance of discoverability of the repository
-- Check the plugin versioning policy is documented and help users know which versions of the plugin are compatible and recommended for specific versions of OpenSearch 
+- Check the plugin versioning policy is documented and help users know which versions of the plugin are compatible and recommended for specific versions of OpenSearch
 - Review [CONTRIBUTING.md](CONTRIBUTING.md) document which is by default tailored to the needs of Amazon Web Services developer teams. You might want to update or further customize specific parts related to:
   - **Code of Conduct** (if you do not already have CoC policy then there are several options to start with, such as [Contributor Covenant](https://www.contributor-covenant.org/)),
   - **Security Policy** (you should let users know how they can safely report security vulnerabilities),
@@ -99,7 +99,7 @@ This is the file tree structure of the source code, as you can see there are som
 Now that you have named the repo, you can change the plugin class `RenamePlugin.java` to have a meaningful name, keeping the `Plugin` suffix.
 Change `RenamePluginIT.java`, `RenameTests.java`, and `RenameClientYamlTestSuiteIT.java` accordingly, keeping the `PluginIT`, `Tests`, and `ClientYamlTestSuiteIT` suffixes.
 
-### Plugin Path 
+### Plugin Path
 You will need to change these paths in the source tree:
 
 1) Package Path
@@ -161,12 +161,12 @@ Now you can run all the tests like so:
 ./gradlew check
 ```
 
-### Running testClusters with the plugin installed 
+### Running testClusters with the plugin installed
 ```
 ./gradlew run
 ```
 
-Then you can see that your plugin has been installed by running: 
+Then you can see that your plugin has been installed by running:
 ```
 curl -XGET 'localhost:9200/_cat/plugins'
 ```
@@ -187,11 +187,11 @@ tasks.register("preparePluginPathDirs") {
 }
 ```
 
-- Last but not least, add your own `README.md` instead of this one 
+- Last but not least, add your own `README.md` instead of this one
 
 ### Editing the CI workflow
 You may want to edit the CI of your new repo.
-  
+
 In your new GitHub repo, head over to `.github/workflows/CI.yml`. This file describes the workflow for testing new push or pull-request actions on the repo.
 Currently, it is configured to build the plugin and run all the tests in it.
 
