@@ -7,7 +7,7 @@ apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.yaml-rest-test'
 apply plugin: 'opensearch.pluginzip'
 
-def pluginName = project.name
+def pluginName = 'lang-python'
 def pluginDescription = 'Python as a scripting language for OpenSearch'
 def packagePath = 'org.opensearch'
 def pathToPlugin = 'python'

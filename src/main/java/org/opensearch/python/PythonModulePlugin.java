@@ -22,7 +22,6 @@ import org.opensearch.plugins.ScriptPlugin;
  * This plugin allows users to write and execute scripts in Python within OpenSearch.
  * </p>
  *
- * @opensearch.api
  */
 public class PythonModulePlugin extends Plugin implements ScriptPlugin {
     /**
