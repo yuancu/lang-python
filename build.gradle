@@ -31,11 +31,11 @@ apply plugin: 'opensearch.yaml-rest-test'
 apply plugin: 'opensearch.pluginzip'
 
 ext {
-  graalVersion = '23.0.1'
+  graalVersion = '24.1.2'
 }
 dependencies {
-  implementation "org.graalvm.sdk:graal-sdk:$graalVersion"
-  implementation "org.graalvm.js:js:$graalVersion"
+  api "org.graalvm.polyglot:polyglot:$graalVersion"
+  api "org.graalvm.polyglot:python:$graalVersion"
 }
 
 def pluginName = 'lang-python'

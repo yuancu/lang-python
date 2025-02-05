@@ -29,6 +29,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
+import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.SandboxPolicy;
+import org.graalvm.polyglot.Value;
+
 @SuppressWarnings("removal")
 public class PythonScriptEngine implements ScriptEngine {
 
@@ -119,10 +123,28 @@ public class PythonScriptEngine implements ScriptEngine {
                 @Override
                 public Object execute() {
                     logger.info("Executing code inside PythonFieldScript: {}", code);
+                    runPython();
                     return 0.0d;
                 }
             };
         }
+    }
+
+    private static Void runPython(){
+        try (Context context = Context.newBuilder("python")
+                .sandbox(SandboxPolicy.TRUSTED)
+                .allowAllAccess(false).build()) {
+
+            context.eval("python", "result = 11");
+            logger.info("Eval succeeded");
+            Value result = context.getBindings("python").getMember("result");
+
+            logger.info("Result {}", result.asInt());
+            System.out.println("Result: " + result);
+        } catch (Exception e){
+            logger.error("Failed to run python code", e);
+        }
+        return null;
     }
 
 }
