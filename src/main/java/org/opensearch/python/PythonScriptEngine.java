@@ -15,9 +15,7 @@ package org.opensearch.python;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.lucene.index.LeafReaderContext;
 import org.opensearch.script.*;
-import org.opensearch.search.lookup.SearchLookup;
 
 import java.io.IOException;
 import java.security.AccessControlContext;
@@ -29,9 +27,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
-import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.SandboxPolicy;
-import org.graalvm.polyglot.Value;
 
 @SuppressWarnings("removal")
 public class PythonScriptEngine implements ScriptEngine {
@@ -49,19 +44,8 @@ public class PythonScriptEngine implements ScriptEngine {
     static {
 
         Map<ScriptContext<?>, Function<String, ScriptFactory>> contexts = new HashMap<>();
-        contexts.put(FieldScript.CONTEXT, (String code) -> new FieldScript.Factory(){
-
-            @Override
-            public boolean isResultDeterministic() {
-                return true;
-            }
-
-            @Override
-            public FieldScript.LeafFactory newFactory(Map<String, Object> params, SearchLookup lookup) {
-                return newFieldScript(code, params, lookup);
-            }
-        });
-        contexts.put(ScoreScript.CONTEXT, null);
+        contexts.put(FieldScript.CONTEXT, PythonFieldScript::newFieldScriptFactory);
+        contexts.put(ScoreScript.CONTEXT, PythonScoreScript::newScoreScriptFactory);
         PythonScriptEngine.contexts = Collections.unmodifiableMap(contexts);
     }
 
@@ -98,53 +82,4 @@ public class PythonScriptEngine implements ScriptEngine {
         none.setReadOnly();
         COMPILATION_CONTEXT = new AccessControlContext(new ProtectionDomain[] { new ProtectionDomain(null, none) });
     }
-
-    private static  FieldScript.LeafFactory newFieldScript(String code, Map<String, Object> params, SearchLookup lookup){
-        logger.info("Executing python code: {}", code);
-        logger.info("Params: {}", params.toString());
-        logger.info("Lookup: {}", lookup.toString());
-        return new PythonFieldScriptLeafFactory(code, params, lookup);
-    }
-
-    private static class PythonFieldScriptLeafFactory implements  FieldScript.LeafFactory {
-        private final String code;
-        private Map<String, Object> params;
-        private SearchLookup lookup;
-
-        private PythonFieldScriptLeafFactory(String code, Map<String, Object> params, SearchLookup lookup) {
-            this.code = code;
-            this.params = params;
-            this.lookup = lookup;
-        }
-
-        @Override
-        public FieldScript newInstance(LeafReaderContext ctx) throws IOException {
-            return new FieldScript(params, lookup, ctx) {
-                @Override
-                public Object execute() {
-                    logger.info("Executing code inside PythonFieldScript: {}", code);
-                    runPython();
-                    return 0.0d;
-                }
-            };
-        }
-    }
-
-    private static Void runPython(){
-        try (Context context = Context.newBuilder("python")
-                .sandbox(SandboxPolicy.TRUSTED)
-                .allowAllAccess(false).build()) {
-
-            context.eval("python", "result = 11");
-            logger.info("Eval succeeded");
-            Value result = context.getBindings("python").getMember("result");
-
-            logger.info("Result {}", result.asInt());
-            System.out.println("Result: " + result);
-        } catch (Exception e){
-            logger.error("Failed to run python code", e);
-        }
-        return null;
-    }
-
 }
