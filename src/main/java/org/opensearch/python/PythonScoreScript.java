@@ -17,6 +17,11 @@ import org.opensearch.search.lookup.SearchLookup;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
+
+
+// Reference memo (For developers only)
+// - https://www.elastic.co/guide/en/elasticsearch/painless/current/painless-score-context.html
 
 public class PythonScoreScript {
     private static final Logger logger = LogManager.getLogger();
@@ -42,9 +47,9 @@ public class PythonScoreScript {
 
     private static class PythonScoreScriptLeafFactory implements ScoreScript.LeafFactory {
         private final String code;
-        private Map<String, Object> params;
-        private SearchLookup lookup;
-        private IndexSearcher indexSearcher;
+        private final Map<String, Object> params;
+        private final SearchLookup lookup;
+        private final IndexSearcher indexSearcher;
 
         private PythonScoreScriptLeafFactory(String code, Map<String, Object> params, SearchLookup lookup, IndexSearcher indexSearcher) {
             this.code = code;

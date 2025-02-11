@@ -32,10 +32,13 @@ apply plugin: 'opensearch.pluginzip'
 
 ext {
   graalVersion = '24.1.2'
+  antlr4Version = '4.13.2'
 }
+
 dependencies {
   api "org.graalvm.polyglot:polyglot:$graalVersion"
-  api "org.graalvm.polyglot:python:$graalVersion"
+  api "org.graalvm.polyglot:python-community:$graalVersion"
+  api "org.antlr:antlr4-runtime:$antlr4Version"
 }
 
 def pluginName = 'lang-python'
