@@ -15,6 +15,7 @@ import org.apache.lucene.search.IndexSearcher;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.Value;
 import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.script.GeneralScriptException;
 import org.opensearch.script.ScoreScript;
 import org.opensearch.script.ScriptException;
 import org.opensearch.search.lookup.SearchLookup;
@@ -22,7 +23,9 @@ import org.opensearch.search.lookup.SearchLookup;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.SandboxPolicy;
 
+import java.security.AccessController;
 import java.io.IOException;
+import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -71,6 +74,7 @@ public class PythonScoreScript {
             return true;
         }
 
+        @SuppressWarnings("removal")
         @Override
         public ScoreScript newInstance(LeafReaderContext ctx) throws IOException {
             return new ScoreScript(params, lookup, indexSearcher, ctx) {
@@ -80,26 +84,24 @@ public class PythonScoreScript {
                         explanation.set("Use user-provided Python expression to calculate the score of the document");
                     }
 
-                    // TODO: Test throw exception
+                    logger.info("Code is expression: {}", PythonScriptUtility.isCodeAnExpression(code));
                     if (!PythonScriptUtility.isCodeAnExpression(code)) {
-                        throw new ScriptException("Python score script must be an expression, but got " + code,
-                            null, null, null, PythonScriptEngine.NAME);
+                        //TODO: Convert to ScriptException @see ExpressionScriptEngine.java#L444
+                        throw new GeneralScriptException("Python score script must be an expression, but got " + code);
                     }
 
                     Set<String> accessedDocFields = PythonScriptUtility.extractAccessedDocFields(code);
                     Map<String, Object> docParams = new HashMap<>();
-                    accessedDocFields.add("pages");
                     for (String field : accessedDocFields) {
                         docParams.put(field, getDoc().get(field));
                     }
 
-                    double evaluatedScore = runPythonCode(code, params, docParams, get_score());
-                    return evaluatedScore;
+                    return AccessController.doPrivileged((PrivilegedAction<Double>) () -> runPythonCode(code, params, docParams, get_score()));
                 }
             };
         }
 
-        private double runPythonCode(String code, Map<String, ?> params, Map<String, ?> doc, double score){
+        private static double runPythonCode(String code, Map<String, ?> params, Map<String, ?> doc, double score){
             try (Context context = Context.newBuilder("python")
                 .sandbox(SandboxPolicy.TRUSTED)
                 .allowHostAccess(HostAccess.ALL).build()) {
