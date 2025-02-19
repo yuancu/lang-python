@@ -14,10 +14,8 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.IndexSearcher;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.Value;
-import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.script.GeneralScriptException;
 import org.opensearch.script.ScoreScript;
-import org.opensearch.script.ScriptException;
 import org.opensearch.search.lookup.SearchLookup;
 
 import org.graalvm.polyglot.Context;
@@ -96,30 +94,17 @@ public class PythonScoreScript {
                         docParams.put(field, getDoc().get(field));
                     }
 
-                    return AccessController.doPrivileged((PrivilegedAction<Double>) () -> runPythonCode(code, params, docParams, get_score()));
+                    return AccessController.doPrivileged((PrivilegedAction<Double>) () -> executePython(code, params, docParams, get_score()));
                 }
             };
         }
 
-        private static double runPythonCode(String code, Map<String, ?> params, Map<String, ?> doc, double score){
-            try (Context context = Context.newBuilder("python")
-                .sandbox(SandboxPolicy.TRUSTED)
-                .allowHostAccess(HostAccess.ALL).build()) {
-
-                logger.info("Executing python code: {}", code);
-                logger.info("Params: {}", params.toString());
-                logger.info("Doc: {}", doc.toString());
-                logger.info("Score: {}", score);
-
-                context.getBindings("python").putMember("params", params);
-                context.getBindings("python").putMember("doc", doc);
-                context.getBindings("python").putMember("_score", score);
-                Value evaluatedVal = context.eval("python", code);
-                return evaluatedVal.asDouble();
-            } catch (Exception e){
-                logger.error("Failed to run python code", e);
+        private static double executePython(String code, Map<String, ?> params, Map<String, ?> doc, double score){
+            Value evaluatedVal = ExecutionUtils.executePython(code, params, doc, score);
+            if (evaluatedVal == null) {
                 return 0;
             }
+            return evaluatedVal.asDouble();
         }
     }
 }

@@ -46,6 +46,7 @@ public class PythonScriptEngine implements ScriptEngine {
         Map<ScriptContext<?>, Function<String, ScriptFactory>> contexts = new HashMap<>();
         contexts.put(FieldScript.CONTEXT, PythonFieldScript::newFieldScriptFactory);
         contexts.put(ScoreScript.CONTEXT, PythonScoreScript::newScoreScriptFactory);
+        contexts.put(TemplateScript.CONTEXT, PythonTemplateScript::newTemplateScriptFactory);
         PythonScriptEngine.contexts = Collections.unmodifiableMap(contexts);
     }
 
