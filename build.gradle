@@ -1,15 +1,17 @@
 import org.opensearch.gradle.test.RestIntegTestTask
 
+
 buildscript {
   ext {
+    opensearch_group = "org.opensearch"
     opensearch_version = System.getProperty("opensearch.version", "3.0.0-SNAPSHOT")
   }
 
   repositories {
     mavenLocal()
-    maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+    maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
     mavenCentral()
-    maven { url "https://plugins.gradle.org/m2/" }
+    maven { url = "https://plugins.gradle.org/m2/" }
   }
 
   dependencies {
@@ -20,6 +22,9 @@ buildscript {
 plugins {
   id 'org.graalvm.buildtools.native' version '0.10.4'
   id 'java'
+  id "com.netflix.nebula.maven-base-publish" version "20.2.0"
+  id 'org.graalvm.python' version '24.2.0'
+  id 'com.diffplug.spotless' version '7.0.3'
 }
 
 
@@ -30,14 +35,19 @@ apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.yaml-rest-test'
 apply plugin: 'opensearch.pluginzip'
 
+allprojects {
+  group = 'org.opensearch'
+  version = opensearch_version - "-SNAPSHOT" + ".0"
+}
+
 ext {
-  graalVersion = '24.1.2'
+  graalVersion = '24.2.0'
   antlr4Version = '4.13.2'
 }
 
 dependencies {
   api "org.graalvm.polyglot:polyglot:$graalVersion"
-  api "org.graalvm.polyglot:python-community:$graalVersion"
+  api "org.graalvm.polyglot:python:$graalVersion"
   api "org.antlr:antlr4-runtime:$antlr4Version"
 }
 
@@ -53,9 +63,12 @@ ext {
   failOnJavadocWarning = false
 }
 
+// This is to generate a plugin-descriptor.properties file that is required by all opensearch plugins
+// see https://github.com/opensearch-project/opensearch-plugins/blob/main/BUILDING.md#plugin-descriptorproperties
 opensearchplugin {
-  description pluginDescription
-  classname 'org.opensearch.python.PythonModulePlugin'
+  name = pluginName
+  description = pluginDescription
+  classname = 'org.opensearch.python.PythonModulePlugin'
 }
 
 publishing {
@@ -70,11 +83,11 @@ publishing {
 }
 
 opensearchplugin {
-    name pluginName
-    description pluginDescription
-    classname "${packagePath}.${pathToPlugin}.${pluginClassName}"
-    licenseFile rootProject.file('LICENSE.txt')
-    noticeFile rootProject.file('NOTICE.txt')
+    name = pluginName
+    description = pluginDescription
+    classname = "${packagePath}.${pathToPlugin}.${pluginClassName}"
+    licenseFile = rootProject.file('LICENSE.txt')
+    noticeFile = rootProject.file('NOTICE.txt')
 }
 
 // This requires an additional Jar not published as part of build-tools
@@ -88,9 +101,9 @@ validateNebulaPom.enabled = false
 
 repositories {
     mavenLocal()
-    maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+    maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
     mavenCentral()
-    maven { url "https://plugins.gradle.org/m2/" }
+    maven { url = "https://plugins.gradle.org/m2/" }
 }
 
 
@@ -125,6 +138,10 @@ run {
     useCluster testClusters.integTest
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['--module-path', '/Users/yuanchu/src/OpenSearch/lib/libs', '--add-modules', 'org.graalvm.polyglot']
+}
+
 // updateVersion: Task to auto update version to the next development iteration
 task updateVersion {
     onlyIf { System.getProperty('newVersion') }
@@ -144,6 +161,35 @@ tasks.named('thirdPartyAudit') {
   enabled = false
 }
 
-//tasks.named('missingJavadoc') {
-//  enabled = false
-//}
+graalPy {
+  packages = ["numpy==1.24.3", "termcolor==2.2"]
+}
+
+spotless {
+  // optional: limit format enforcement to just the files changed by this feature branch
+  ratchetFrom 'origin/main'
+
+  format 'misc', {
+    // define the files to apply `misc` to
+    target '*.gradle', '.gitattributes', '.gitignore'
+
+    // define the steps to apply to those files
+    trimTrailingWhitespace()
+    leadingSpacesToTabs() // or leadingTabsToSpaces. Takes an integer argument if you don't like 4
+    endWithNewline()
+  }
+  java {
+    importOrder()
+    removeUnusedImports()
+    trimTrailingWhitespace()
+    endWithNewline()
+    // apply a specific flavor of google-java-format
+    googleJavaFormat('1.17.0').aosp().reflowLongStrings().skipJavadocFormatting()
+    // fix formatting of type annotations
+    formatAnnotations()
+        licenseHeader("/*\n" +
+                " * Copyright OpenSearch Contributors\n" +
+                " * SPDX-License-Identifier: Apache-2.0\n" +
+                " */\n\n")
+  }
+}

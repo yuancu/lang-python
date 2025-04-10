@@ -83,10 +83,10 @@ public class PythonScoreScript {
                     }
 
                     logger.info("Code is expression: {}", PythonScriptUtility.isCodeAnExpression(code));
-                    if (!PythonScriptUtility.isCodeAnExpression(code)) {
-                        //TODO: Convert to ScriptException @see ExpressionScriptEngine.java#L444
-                        throw new GeneralScriptException("Python score script must be an expression, but got " + code);
-                    }
+//                    if (!PythonScriptUtility.isCodeAnExpression(code)) {
+//                        //TODO: Convert to ScriptException @see ExpressionScriptEngine.java#L444
+//                        throw new GeneralScriptException("Python score script must be an expression, but got " + code);
+//                    }
 
                     Set<String> accessedDocFields = PythonScriptUtility.extractAccessedDocFields(code);
                     Map<String, Object> docParams = new HashMap<>();

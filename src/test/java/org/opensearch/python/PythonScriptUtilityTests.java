@@ -17,8 +17,8 @@ import java.util.Set;
 public class PythonScriptUtilityTests extends OpenSearchTestCase {
 
     public void testValidExpression() {
-        String[] expressions = new String[] {"3 + 5", "print('Hello')", "lambda x: x * 2", "if x == 1: print(x)", "doc['a'].value + 2", "-_score * 3", "abs(_score)"};
-        Boolean[] expectations = new Boolean[] {true, true, false, false, true, true, true};
+        String[] expressions = new String[] {"3 + 5", "print('Hello')", "lambda x: x * 2", "if x == 1: print(x)", "doc['a'].value + 2", "-_score * 3", "abs(_score)", "sum(doc[\"ratings\"]) / len(doc[\"ratings\"])"};
+        Boolean[] expectations = new Boolean[] {true, true, false, false, true, true, true, true};
         Iterator<String> exprIt = Arrays.stream(expressions).iterator();
         Iterator<Boolean> expectIt = Arrays.stream(expectations).iterator();
         while (exprIt.hasNext() && expectIt.hasNext()) {

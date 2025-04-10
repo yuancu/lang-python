@@ -73,7 +73,7 @@ public class PythonFieldScript {
             .allowAllAccess(false).build()) {
 
             // TODO: check whether code has a field `result`
-            context.eval("python", "result = 11");
+            context.eval("python", code);
             logger.info("Eval succeeded");
             Value result = context.getBindings("python").getMember("result");
 

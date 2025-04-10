@@ -1,30 +1,44 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
  */
 
 package org.opensearch.python;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.Map;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
-
-import java.util.Map;
+import org.graalvm.python.embedding.GraalPyResources;
 
 public class ExecutionUtils {
     private static final Logger logger = LogManager.getLogger();
+    private static OutputStream outputStream =
+            new OutputStream() {
+                @Override
+                public void write(int b) throws IOException {}
+            };
 
-    public static Value executePython(String code, Map<String, ?> params, Map<String, ?> doc, Double score){
-        try (Context context = Context.newBuilder("python")
-            .sandbox(SandboxPolicy.TRUSTED)
-            .allowHostClassLookup(s -> true)
-            .allowHostAccess(HostAccess.ALL).build()) {
+    public static Value executePython(
+            String code, Map<String, ?> params, Map<String, ?> doc, Double score) {
+        // A working context without capabilities to import packages:
+        // Context context = Context.newBuilder("python")
+        //            .sandbox(SandboxPolicy.TRUSTED)
+        //            .allowHostAccess(HostAccess.ALL).build()
+        try (Context context =
+                GraalPyResources.contextBuilder()
+                        .sandbox(SandboxPolicy.TRUSTED)
+                        .allowHostAccess(HostAccess.ALL)
+                        // The following 2 options are necessary for importing 3-rd party libraries
+                        // that load native libraries
+                        .allowExperimentalOptions(true)
+                        .option("python.IsolateNativeModules", "true")
+                        .build()) {
 
             if (params != null) {
                 logger.debug("Params: {}", params.toString());
@@ -39,7 +53,7 @@ public class ExecutionUtils {
                 context.getBindings("python").putMember("_score", score);
             }
             return context.eval("python", code);
-        } catch (Exception e){
+        } catch (Exception e) {
             logger.error("Failed to run python code", e);
             return null;
         }

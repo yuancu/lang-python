@@ -9,6 +9,7 @@
 package org.opensearch.python;
 
 import org.opensearch.common.settings.Settings;
+import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ScriptPlugin;
 import org.opensearch.script.ScriptContext;
