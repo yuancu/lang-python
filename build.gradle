@@ -20,19 +20,16 @@ dependencies {
 }
 
 plugins {
-id 'org.graalvm.buildtools.native' version '0.10.5'
 id 'java'
-id "com.netflix.nebula.maven-base-publish" version "20.2.0"
+id 'idea'
+id 'eclipse'
+id 'org.graalvm.buildtools.native' version '0.10.5'
 id 'org.graalvm.python' version '24.2.0'
 id 'com.diffplug.spotless' version '7.0.3'
 }
 
-
-//apply plugin: 'java'
-apply plugin: 'idea'
-apply plugin: 'eclipse'
-apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.yaml-rest-test'
+apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.pluginzip'
 
 allprojects {
@@ -68,7 +65,9 @@ failOnJavadocWarning = false
 opensearchplugin {
 name = pluginName
 description = pluginDescription
-classname = 'org.opensearch.python.PythonModulePlugin'
+classname = "${packagePath}.${pathToPlugin}.${pluginClassName}"
+licenseFile = rootProject.file('LICENSE.txt')
+noticeFile = rootProject.file('NOTICE.txt')
 }
 
 publishing {
@@ -82,22 +81,11 @@ publishing {
 	}
 }
 
-opensearchplugin {
-	name = pluginName
-	description = pluginDescription
-	classname = "${packagePath}.${pathToPlugin}.${pluginClassName}"
-	licenseFile = rootProject.file('LICENSE.txt')
-	noticeFile = rootProject.file('NOTICE.txt')
-}
-
 // This requires an additional Jar not published as part of build-tools
 loggerUsageCheck.enabled = false
 
 // No need to validate pom, as we do not upload to maven/sonatype
 validateNebulaPom.enabled = false
-
-
-
 
 repositories {
 	mavenLocal()
@@ -106,17 +94,16 @@ repositories {
 	maven { url = "https://plugins.gradle.org/m2/" }
 }
 
-
 test {
 	include '**/*Tests.class'
 }
 
-task integTest(type: RestIntegTestTask) {
-	description = "Run tests against a cluster"
-	testClassesDirs = sourceSets.test.output.classesDirs
-	classpath = sourceSets.test.runtimeClasspath
+tasks.register('integTest', RestIntegTestTask) {
+description = "Run tests against a cluster"
+testClassesDirs = sourceSets.test.output.classesDirs
+classpath = sourceSets.test.runtimeClasspath
 }
-tasks.named("check").configure { dependsOn(integTest) }
+tasks.named("check").configure { dependsOn("integTest") }
 
 tasks.named("publishNebulaPublicationToMavenLocal").configure { dependsOn "generatePomFileForPluginZipPublication" }
 
@@ -138,19 +125,15 @@ run {
 	useCluster testClusters.integTest
 }
 
-tasks.withType(JavaCompile).configureEach {
-	options.compilerArgs += ['--module-path', '/Users/yuanchu/src/OpenSearch/lib/libs', '--add-modules', 'org.graalvm.polyglot']
-}
-
 // updateVersion: Task to auto update version to the next development iteration
-task updateVersion {
-	onlyIf { System.getProperty('newVersion') }
-	doLast {
-		ext.newVersion = System.getProperty('newVersion')
-		println "Setting version to ${newVersion}."
-		// String tokenization to support -SNAPSHOT
-		ant.replaceregexp(file:'build.gradle', match: '"opensearch.version", "\\d.*"', replace: '"opensearch.version", "' + newVersion.tokenize('-')[0] + '-SNAPSHOT"', flags:'g', byline:true)
-	}
+tasks.register('updateVersion') {
+onlyIf { System.getProperty('newVersion') }
+doLast {
+	ext.newVersion = System.getProperty('newVersion')
+	println "Setting version to ${newVersion}."
+	// String tokenization to support -SNAPSHOT
+	ant.replaceregexp(file: 'build.gradle', match: '"opensearch.version", "\\d.*"', replace: '"opensearch.version", "' + newVersion.tokenize('-')[0] + '-SNAPSHOT"', flags: 'g', byline: true)
+}
 }
 
 tasks.named('dependencyLicenses') {
