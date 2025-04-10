@@ -1,8 +1,8 @@
 // Configured per section 5.2 of https://www.graalvm.org/python/docs/#gradle
 pluginManagement {
-  repositories {
-    gradlePluginPortal()
-  }
+repositories {
+	gradlePluginPortal()
+}
 }
 
 rootProject.name = 'lang-python'

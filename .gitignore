@@ -58,3 +58,5 @@ testfixtures_shared/
 .ci/jobs/
 
 install.sh
+.java-version
+

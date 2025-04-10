@@ -2,29 +2,29 @@ import org.opensearch.gradle.test.RestIntegTestTask
 
 
 buildscript {
-  ext {
-    opensearch_group = "org.opensearch"
-    opensearch_version = System.getProperty("opensearch.version", "3.0.0-SNAPSHOT")
-  }
+ext {
+	opensearch_group = "org.opensearch"
+	opensearch_version = System.getProperty("opensearch.version", "3.0.0-SNAPSHOT")
+}
 
-  repositories {
-    mavenLocal()
-    maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
-    mavenCentral()
-    maven { url = "https://plugins.gradle.org/m2/" }
-  }
+repositories {
+	mavenLocal()
+	maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+	mavenCentral()
+	maven { url = "https://plugins.gradle.org/m2/" }
+}
 
-  dependencies {
-    classpath "org.opensearch.gradle:build-tools:${opensearch_version}"
-  }
+dependencies {
+	classpath "org.opensearch.gradle:build-tools:${opensearch_version}"
+}
 }
 
 plugins {
-  id 'org.graalvm.buildtools.native' version '0.10.4'
-  id 'java'
-  id "com.netflix.nebula.maven-base-publish" version "20.2.0"
-  id 'org.graalvm.python' version '24.2.0'
-  id 'com.diffplug.spotless' version '7.0.3'
+id 'org.graalvm.buildtools.native' version '0.10.4'
+id 'java'
+id "com.netflix.nebula.maven-base-publish" version "20.2.0"
+id 'org.graalvm.python' version '24.2.0'
+id 'com.diffplug.spotless' version '7.0.3'
 }
 
 
@@ -36,19 +36,19 @@ apply plugin: 'opensearch.yaml-rest-test'
 apply plugin: 'opensearch.pluginzip'
 
 allprojects {
-  group = 'org.opensearch'
-  version = opensearch_version - "-SNAPSHOT" + ".0"
+group = 'org.opensearch'
+version = opensearch_version - "-SNAPSHOT" + ".0"
 }
 
 ext {
-  graalVersion = '24.2.0'
-  antlr4Version = '4.13.2'
+graalVersion = '24.2.0'
+antlr4Version = '4.13.2'
 }
 
 dependencies {
-  api "org.graalvm.polyglot:polyglot:$graalVersion"
-  api "org.graalvm.polyglot:python:$graalVersion"
-  api "org.antlr:antlr4-runtime:$antlr4Version"
+api "org.graalvm.polyglot:polyglot:$graalVersion"
+api "org.graalvm.polyglot:python:$graalVersion"
+api "org.antlr:antlr4-runtime:$antlr4Version"
 }
 
 def pluginName = 'lang-python'
@@ -59,35 +59,35 @@ def pluginClassName = 'PythonModulePlugin'
 
 
 ext {
-  // Do not fail on `javadoc` warning (ANTLR generated code)
-  failOnJavadocWarning = false
+// Do not fail on `javadoc` warning (ANTLR generated code)
+failOnJavadocWarning = false
 }
 
 // This is to generate a plugin-descriptor.properties file that is required by all opensearch plugins
 // see https://github.com/opensearch-project/opensearch-plugins/blob/main/BUILDING.md#plugin-descriptorproperties
 opensearchplugin {
-  name = pluginName
-  description = pluginDescription
-  classname = 'org.opensearch.python.PythonModulePlugin'
+name = pluginName
+description = pluginDescription
+classname = 'org.opensearch.python.PythonModulePlugin'
 }
 
 publishing {
-    publications {
-        pluginZip(MavenPublication) { publication ->
-            pom {
-              name = pluginName
-              description = pluginDescription
-            }
-        }
-    }
+	publications {
+		pluginZip(MavenPublication) { publication ->
+			pom {
+			name = pluginName
+			description = pluginDescription
+			}
+		}
+	}
 }
 
 opensearchplugin {
-    name = pluginName
-    description = pluginDescription
-    classname = "${packagePath}.${pathToPlugin}.${pluginClassName}"
-    licenseFile = rootProject.file('LICENSE.txt')
-    noticeFile = rootProject.file('NOTICE.txt')
+	name = pluginName
+	description = pluginDescription
+	classname = "${packagePath}.${pathToPlugin}.${pluginClassName}"
+	licenseFile = rootProject.file('LICENSE.txt')
+	noticeFile = rootProject.file('NOTICE.txt')
 }
 
 // This requires an additional Jar not published as part of build-tools
@@ -100,96 +100,96 @@ validateNebulaPom.enabled = false
 
 
 repositories {
-    mavenLocal()
-    maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
-    mavenCentral()
-    maven { url = "https://plugins.gradle.org/m2/" }
+	mavenLocal()
+	maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+	mavenCentral()
+	maven { url = "https://plugins.gradle.org/m2/" }
 }
 
 
 test {
-    include '**/*Tests.class'
+	include '**/*Tests.class'
 }
 
 task integTest(type: RestIntegTestTask) {
-    description = "Run tests against a cluster"
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
+	description = "Run tests against a cluster"
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
 }
 tasks.named("check").configure { dependsOn(integTest) }
 
 tasks.named("publishNebulaPublicationToMavenLocal").configure { dependsOn "generatePomFileForPluginZipPublication" }
 
 integTest {
-    // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
-    if (System.getProperty("test.debug") != null) {
-        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
-    }
+	// The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
+	if (System.getProperty("test.debug") != null) {
+		jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+	}
 }
 
 testClusters.integTest {
-    testDistribution = "INTEG_TEST"
+	testDistribution = "INTEG_TEST"
 
-    // This installs our plugin into the testClusters
-    plugin(project.tasks.bundlePlugin.archiveFile)
+	// This installs our plugin into the testClusters
+	plugin(project.tasks.bundlePlugin.archiveFile)
 }
 
 run {
-    useCluster testClusters.integTest
+	useCluster testClusters.integTest
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.compilerArgs += ['--module-path', '/Users/yuanchu/src/OpenSearch/lib/libs', '--add-modules', 'org.graalvm.polyglot']
+	options.compilerArgs += ['--module-path', '/Users/yuanchu/src/OpenSearch/lib/libs', '--add-modules', 'org.graalvm.polyglot']
 }
 
 // updateVersion: Task to auto update version to the next development iteration
 task updateVersion {
-    onlyIf { System.getProperty('newVersion') }
-    doLast {
-        ext.newVersion = System.getProperty('newVersion')
-        println "Setting version to ${newVersion}."
-         // String tokenization to support -SNAPSHOT
-        ant.replaceregexp(file:'build.gradle', match: '"opensearch.version", "\\d.*"', replace: '"opensearch.version", "' + newVersion.tokenize('-')[0] + '-SNAPSHOT"', flags:'g', byline:true)
-    }
+	onlyIf { System.getProperty('newVersion') }
+	doLast {
+		ext.newVersion = System.getProperty('newVersion')
+		println "Setting version to ${newVersion}."
+		// String tokenization to support -SNAPSHOT
+		ant.replaceregexp(file:'build.gradle', match: '"opensearch.version", "\\d.*"', replace: '"opensearch.version", "' + newVersion.tokenize('-')[0] + '-SNAPSHOT"', flags:'g', byline:true)
+	}
 }
 
 tasks.named('dependencyLicenses') {
-  enabled = false
+enabled = false
 }
 
 tasks.named('thirdPartyAudit') {
-  enabled = false
+enabled = false
 }
 
 graalPy {
-  packages = ["numpy==1.24.3", "termcolor==2.2"]
+packages = ["numpy==1.24.3", "termcolor==2.2"]
 }
 
 spotless {
-  // optional: limit format enforcement to just the files changed by this feature branch
-  ratchetFrom 'origin/main'
+// optional: limit format enforcement to just the files changed by this feature branch
+ratchetFrom 'origin/main'
 
-  format 'misc', {
-    // define the files to apply `misc` to
-    target '*.gradle', '.gitattributes', '.gitignore'
+format 'misc', {
+	// define the files to apply `misc` to
+	target '*.gradle', '.gitattributes', '.gitignore'
 
-    // define the steps to apply to those files
-    trimTrailingWhitespace()
-    leadingSpacesToTabs() // or leadingTabsToSpaces. Takes an integer argument if you don't like 4
-    endWithNewline()
-  }
-  java {
-    importOrder()
-    removeUnusedImports()
-    trimTrailingWhitespace()
-    endWithNewline()
-    // apply a specific flavor of google-java-format
-    googleJavaFormat('1.17.0').aosp().reflowLongStrings().skipJavadocFormatting()
-    // fix formatting of type annotations
-    formatAnnotations()
-        licenseHeader("/*\n" +
-                " * Copyright OpenSearch Contributors\n" +
-                " * SPDX-License-Identifier: Apache-2.0\n" +
-                " */\n\n")
-  }
+	// define the steps to apply to those files
+	trimTrailingWhitespace()
+	leadingSpacesToTabs() // or leadingTabsToSpaces. Takes an integer argument if you don't like 4
+	endWithNewline()
+}
+java {
+	importOrder()
+	removeUnusedImports()
+	trimTrailingWhitespace()
+	endWithNewline()
+	// apply a specific flavor of google-java-format
+	googleJavaFormat('1.17.0').aosp().reflowLongStrings().skipJavadocFormatting()
+	// fix formatting of type annotations
+	formatAnnotations()
+		licenseHeader("/*\n" +
+				" * Copyright OpenSearch Contributors\n" +
+				" * SPDX-License-Identifier: Apache-2.0\n" +
+				" */\n\n")
+}
 }
