@@ -31,7 +31,7 @@ apply plugin: 'opensearch.yaml-rest-test'
 apply plugin: 'opensearch.pluginzip'
 
 ext {
-  graalVersion = '24.1.2'
+  graalVersion = '24.2.1'
   antlr4Version = '4.13.2'
 }
 
