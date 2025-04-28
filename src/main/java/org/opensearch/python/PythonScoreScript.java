@@ -6,8 +6,6 @@
 package org.opensearch.python;
 
 import java.io.IOException;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -18,9 +16,6 @@ import org.apache.lucene.search.IndexSearcher;
 import org.graalvm.polyglot.Value;
 import org.opensearch.script.ScoreScript;
 import org.opensearch.search.lookup.SearchLookup;
-
-// Reference memo (For developers only)
-// - https://www.elastic.co/guide/en/elasticsearch/painless/current/painless-score-context.html
 
 public class PythonScoreScript {
     private static final Logger logger = LogManager.getLogger();
@@ -71,7 +66,6 @@ public class PythonScoreScript {
             return true;
         }
 
-        @SuppressWarnings("removal")
         @Override
         public ScoreScript newInstance(LeafReaderContext ctx) throws IOException {
             return new ScoreScript(params, lookup, indexSearcher, ctx) {
@@ -99,9 +93,7 @@ public class PythonScoreScript {
                         docParams.put(field, getDoc().get(field));
                     }
 
-                    return AccessController.doPrivileged(
-                            (PrivilegedAction<Double>)
-                                    () -> executePython(code, params, docParams, get_score()));
+                    return executePython(code, params, docParams, get_score());
                 }
             };
         }

@@ -5,9 +5,6 @@
 
 package org.opensearch.python;
 
-import java.security.AccessControlContext;
-import java.security.Permissions;
-import java.security.ProtectionDomain;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -20,8 +17,6 @@ public class PythonScriptEngine implements ScriptEngine {
     private static final Logger logger = LogManager.getLogger();
     // Supported contexts (score, field, template, etc.) and their factories
     private static Map<ScriptContext<?>, Function<String, ScriptFactory>> contexts;
-    // Permissions context used during compilation.
-    private static final AccessControlContext COMPILATION_CONTEXT;
 
     static {
         PythonScriptEngine.contexts =
@@ -29,12 +24,6 @@ public class PythonScriptEngine implements ScriptEngine {
                         FieldScript.CONTEXT, PythonFieldScript::newFieldScriptFactory,
                         ScoreScript.CONTEXT, PythonScoreScript::newScoreScriptFactory,
                         TemplateScript.CONTEXT, PythonTemplateScript::newTemplateScriptFactory);
-
-        // Set up the allowed permissions.
-        final Permissions none = new Permissions();
-        none.setReadOnly();
-        COMPILATION_CONTEXT =
-                new AccessControlContext(new ProtectionDomain[] {new ProtectionDomain(null, none)});
     }
 
     @Override

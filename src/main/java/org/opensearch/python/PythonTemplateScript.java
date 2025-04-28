@@ -5,8 +5,6 @@
 
 package org.opensearch.python;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.Map;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -28,15 +26,13 @@ public class PythonTemplateScript {
             this.code = code;
         }
 
-        @SuppressWarnings("removal")
         @Override
         public TemplateScript newInstance(Map<String, Object> params) {
             return new TemplateScript(params) {
                 @Override
                 public String execute() {
                     logger.debug("Executing template script with code: {}", code);
-                    return AccessController.doPrivileged(
-                            (PrivilegedAction<String>) () -> executePython(code, params));
+                    return executePython(code, params);
                 }
             };
         }
