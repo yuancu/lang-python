@@ -38,7 +38,7 @@ version = opensearch_version - "-SNAPSHOT" + ".0"
 }
 
 ext {
-graalVersion = '24.2.0'
+graalVersion = '24.2.1'
 antlr4Version = '4.13.2'
 }
 
