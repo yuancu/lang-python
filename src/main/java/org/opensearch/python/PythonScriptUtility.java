@@ -1,13 +1,12 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
  */
 
 package org.opensearch.python;
 
+import java.util.HashSet;
+import java.util.Set;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -18,17 +17,15 @@ import org.opensearch.python.antlr.Python3Lexer;
 import org.opensearch.python.antlr.Python3Parser;
 import org.opensearch.python.antlr.Python3ParserBaseListener;
 
-import java.util.HashSet;
-import java.util.Set;
-
 public class PythonScriptUtility {
     private static final Logger logger = LogManager.getLogger();
+
     /**
      * Check whether the passed-in python code is an expression
      * @param code python code
      * @return true if the code is an expression
      */
-    public static boolean isCodeAnExpression(String code){
+    public static boolean isCodeAnExpression(String code) {
 
         Python3Lexer lexer = new Python3Lexer(CharStreams.fromString(code));
         CommonTokenStream tokens = new CommonTokenStream(lexer);
@@ -51,9 +48,14 @@ public class PythonScriptUtility {
     // Custom error listener to handle parsing errors
     private static class ThrowingErrorListener extends BaseErrorListener {
         @Override
-        public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
-                                int line, int charPositionInLine,
-                                String msg, RecognitionException e) throws ParseCancellationException {
+        public void syntaxError(
+                Recognizer<?, ?> recognizer,
+                Object offendingSymbol,
+                int line,
+                int charPositionInLine,
+                String msg,
+                RecognitionException e)
+                throws ParseCancellationException {
             throw new ParseCancellationException("Invalid syntax: " + msg);
         }
     }
@@ -63,7 +65,7 @@ public class PythonScriptUtility {
      * @param code python code
      * @return Set of accessed fields
      */
-    public static Set<String> extractAccessedDocFields(String code){
+    public static Set<String> extractAccessedDocFields(String code) {
         Set<String> accessedDocFields = new HashSet<>();
 
         Python3Lexer lexer = new Python3Lexer(CharStreams.fromString(code));
@@ -91,7 +93,8 @@ public class PythonScriptUtility {
                 // Check if this is a subscript expression: doc['ratings']
                 if (ctx.atom().getText().equals("doc")) {
                     for (Python3Parser.TrailerContext trailerCtx : ctx.trailer()) {
-                        if (trailerCtx.subscriptlist() != null) {  // Checks if it's subscript access: doc[...]
+                        if (trailerCtx.subscriptlist()
+                                != null) { // Checks if it's subscript access: doc[...]
                             String key = trailerCtx.subscriptlist().getText();
                             // Extract key if it's a string literal
                             if (key.startsWith("'") || key.startsWith("\"")) {
@@ -103,6 +106,4 @@ public class PythonScriptUtility {
             }
         }
     }
-
-
 }
