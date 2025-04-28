@@ -175,4 +175,10 @@ java {
 				" * SPDX-License-Identifier: Apache-2.0\n" +
 				" */\n\n")
 }
+
+// This task copies the dependencies to a 'libs' directory
+tasks.register('copyDependencies', Copy) {
+	from configurations.runtimeClasspath
+	into 'libs' // Destination directory
+}
 }
