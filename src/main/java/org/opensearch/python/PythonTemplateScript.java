@@ -49,6 +49,7 @@ public class PythonTemplateScript {
         private static String executePython(String code, Map<String, ?> params) {
             Value result = ExecutionUtils.executePython(code, params, null, null);
             if (result == null) {
+                logger.warn("Did not get any result from Python execution");
                 return "";
             }
             return result.asString();
