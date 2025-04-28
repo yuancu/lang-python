@@ -56,3 +56,7 @@ testfixtures_shared/
 
 # These are generated from .ci/jobs.t
 .ci/jobs/
+
+install.sh
+.java-version
+

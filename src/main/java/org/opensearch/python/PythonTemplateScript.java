@@ -1,22 +1,18 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
  */
 
 package org.opensearch.python;
 
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Map;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.graalvm.polyglot.Value;
 import org.opensearch.script.ScriptFactory;
 import org.opensearch.script.TemplateScript;
-
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.util.Map;
 
 public class PythonTemplateScript {
     private static final Logger logger = LogManager.getLogger();
@@ -25,7 +21,7 @@ public class PythonTemplateScript {
         return new TemplateScriptFactory(code);
     }
 
-    public static class TemplateScriptFactory implements TemplateScript.Factory, ScriptFactory{
+    public static class TemplateScriptFactory implements TemplateScript.Factory, ScriptFactory {
         private final String code;
 
         TemplateScriptFactory(String code) {
@@ -39,7 +35,8 @@ public class PythonTemplateScript {
                 @Override
                 public String execute() {
                     logger.debug("Executing template script with code: {}", code);
-                    return AccessController.doPrivileged((PrivilegedAction<String>) () -> executePython(code, params));
+                    return AccessController.doPrivileged(
+                            (PrivilegedAction<String>) () -> executePython(code, params));
                 }
             };
         }
@@ -49,13 +46,13 @@ public class PythonTemplateScript {
             return true;
         }
 
-        private static String executePython(String code, Map<String, ?> params){
+        private static String executePython(String code, Map<String, ?> params) {
             Value result = ExecutionUtils.executePython(code, params, null, null);
             if (result == null) {
+                logger.warn("Did not get any result from Python execution");
                 return "";
             }
             return result.asString();
         }
     }
-
 }
