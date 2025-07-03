@@ -1,0 +1,18 @@
+{
+  "python.execute": {
+    "stability" : "experimental",
+    "url": {
+      "paths": [
+        {
+          "path" : "/_scripts/python/_execute",
+          "methods" : ["POST"]
+        }
+      ]
+    },
+    "params": {},
+    "body": {
+      "description": "PPL Query",
+      "required":true
+    }
+  }
+}

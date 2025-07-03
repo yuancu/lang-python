@@ -1,0 +1,8 @@
+"Test python string concatenation via _execute":
+  - do:
+      python.execute:
+        body:
+          script:
+              source: "'hello ' + 'world'"
+
+  - match: { "result": 'hello world' }
