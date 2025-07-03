@@ -1,5 +1,5 @@
 export OPENSEARCH_JAVA_HOME=
-VERSION=3.0.0.0
+VERSION=3.2.0.0
 OPENSEARCH_PATH=
 
 PLUGIN_ZIP_PATH=./build/distributions/lang-python-$VERSION.zip
@@ -10,7 +10,7 @@ PLUGIN_ZIP_PATH=./build/distributions/lang-python-$VERSION.zip
 # check whether OPENSEARCH_JAVA_HOME, OPENSEARCH_PATH, and PROJECT_ROOT are set
 if [ -z "$OPENSEARCH_JAVA_HOME" ] || [ -z "$OPENSEARCH_PATH" ]; then
   echo "Please set the OPENSEARCH_JAVA_HOME and OPENSEARCH_PATH variables."
-  echo "OPENSEARCH 3.0.0.0 for Mac can be downloaded from https://artifacts.opensearch.org/snapshots/core/opensearch/3.0.0-SNAPSHOT/opensearch-min-3.0.0-SNAPSHOT-darwin-x64-latest.tar.gz"
+  echo "OPENSEARCH 3.2.0.0 for Mac can be downloaded from https://artifacts.opensearch.org/snapshots/core/opensearch/3.2.0-SNAPSHOT/opensearch-min-3.2.0-SNAPSHOT-darwin-x64-latest.tar.gz"
   exit 1
 fi
 
