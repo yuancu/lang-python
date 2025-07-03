@@ -36,6 +36,7 @@ id 'com.diffplug.spotless' version '7.0.3'
 apply plugin: 'opensearch.yaml-rest-test'
 apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.pluginzip'
+apply plugin: 'opensearch.java-agent'
 
 allprojects {
 group = 'org.opensearch'
