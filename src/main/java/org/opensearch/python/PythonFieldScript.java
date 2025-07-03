@@ -16,6 +16,7 @@ import org.graalvm.polyglot.Value;
 import org.opensearch.script.FieldScript;
 import org.opensearch.search.lookup.SearchLookup;
 
+// Under development: this context has not been enabled yet.
 public class PythonFieldScript {
     private static final Logger logger = LogManager.getLogger();
 
@@ -36,9 +37,7 @@ public class PythonFieldScript {
 
     private static FieldScript.LeafFactory newFieldScript(
             String code, Map<String, Object> params, SearchLookup lookup) {
-        logger.info("Executing python code: {}", code);
-        logger.info("Params: {}", params.toString());
-        logger.info("Lookup: {}", lookup.toString());
+        logger.debug("Executing python code: {}\nParams: {}\nLookup: {}", code, params, lookup);
         return new PythonFieldScriptLeafFactory(code, params, lookup);
     }
 
@@ -75,7 +74,6 @@ public class PythonFieldScript {
 
             // TODO: check whether code has a field `result`
             context.eval("python", code);
-            logger.info("Eval succeeded");
             Value result = context.getBindings("python").getMember("result");
 
             logger.info("Result {}", result.asInt());
