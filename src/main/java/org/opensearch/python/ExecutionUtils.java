@@ -51,4 +51,26 @@ public class ExecutionUtils {
             return null;
         }
     }
+
+    public static String executePythonAsString(
+            String code, Map<String, ?> params, Map<String, ?> doc, Double score) {
+        Value result = executePython(code, params, doc, score);
+        if (result == null) {
+            logger.debug("Did not get any result from Python execution");
+            return "";
+        }
+        if (result.isString()) {
+            return result.asString();
+        } else if (result.isNumber()) {
+            return String.valueOf(result.asDouble());
+        } else if (result.isBoolean()) {
+            return String.valueOf(result.asBoolean());
+        } else {
+            logger.warn(
+                    "Python execution only accepts string, number, or boolean as results for the"
+                            + " time being, but got: {}",
+                    result);
+            return result.toString();
+        }
+    }
 }

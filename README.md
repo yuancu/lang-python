@@ -31,6 +31,18 @@ Please consult the original template repository for more information on building
     ```
     You should see an entry for `lang-python` in the output.
 
+## Execute Python Scripts
+The following example demonstrates concatenating two strings using the Python language plugin.
+```bash
+curl --location 'http://localhost:9200/_scripts/python/_execute' \
+--header 'Content-Type: application/json' \
+--data '{
+    "script": {
+        "source": "'\''hello'\'' + '\'' world'\''"
+    }
+}'
+```
+
 ## Solutions to Common Issues
 ### No language and polyglot implementation was found on the module-path.
 If you encounter an error like:
