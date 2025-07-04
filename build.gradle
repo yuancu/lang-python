@@ -59,7 +59,7 @@ def pluginDescription = 'Python as a scripting language for OpenSearch'
 def packagePath = 'org.opensearch'
 def pathToPlugin = 'python'
 def pluginClassName = 'PythonModulePlugin'
-
+def pythonLauncherLibDir = layout.buildDirectory.dir('libs')
 
 ext {
 // Do not fail on `javadoc` warning (ANTLR generated code)
@@ -188,6 +188,17 @@ tasks.register('copyDependencies', Copy) {
     // this configuration is from plugin org.graalvm.python
     // it is discovered by ./gradlew dependencies
 	from configurations.pythonLauncherClasspath // Collects all files, including transitive dependencies
-	into 'libs' // Destination directory
+	into pythonLauncherLibDir // Destination directory
+}
+
+tasks.named('yamlRestTest', RestIntegTestTask) {
+	dependsOn 'copyDependencies'
+	jvmArgs += [
+		"--module-path=${pythonLauncherLibDir.get().asFile}",
+		'--add-modules=org.graalvm.polyglot'
+	]
+	println "JVM Arguments for yamlRestTest: " + jvmArgs.join(" ")
+	classpath += files(pythonLauncherLibDir.get().asFileTree)
+	println "Classpath for yamlRestTest: " + classpath.files.join(", ")
 }
 }
