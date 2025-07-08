@@ -52,6 +52,7 @@ dependencies {
 api "org.graalvm.polyglot:polyglot:$graalVersion"
 api "org.graalvm.polyglot:python-community:$graalVersion"
 api "org.antlr:antlr4-runtime:$antlr4Version"
+implementation 'org.projectlombok:lombok:1.18.38'
 }
 
 def pluginName = 'lang-python'
