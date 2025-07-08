@@ -114,6 +114,7 @@ tasks.named("check").configure { dependsOn("integTest") }
 tasks.named("publishNebulaPublicationToMavenLocal").configure { dependsOn "generatePomFileForPluginZipPublication" }
 
 integTest {
+	dependsOn 'copyDependencies'
 	// The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
 	if (System.getProperty("test.debug") != null) {
 		jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
@@ -125,6 +126,7 @@ testClusters.integTest {
 
 	// This installs our plugin into the testClusters
 	plugin(project.tasks.bundlePlugin.archiveFile)
+	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
 }
 
 run {
@@ -185,20 +187,17 @@ java {
 
 // This task copies the dependencies to a 'libs' directory
 tasks.register('copyDependencies', Copy) {
-    // this configuration is from plugin org.graalvm.python
-    // it is discovered by ./gradlew dependencies
+	// this configuration is from plugin org.graalvm.python
+	// it is discovered by ./gradlew dependencies
 	from configurations.pythonLauncherClasspath // Collects all files, including transitive dependencies
 	into pythonLauncherLibDir // Destination directory
 }
 
 tasks.named('yamlRestTest', RestIntegTestTask) {
 	dependsOn 'copyDependencies'
-	jvmArgs += [
-		"--module-path=${pythonLauncherLibDir.get().asFile}",
-		'--add-modules=org.graalvm.polyglot'
-	]
-	println "JVM Arguments for yamlRestTest: " + jvmArgs.join(" ")
-	classpath += files(pythonLauncherLibDir.get().asFileTree)
-	println "Classpath for yamlRestTest: " + classpath.files.join(", ")
+}
+
+testClusters.yamlRestTest {
+jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
 }
 }
