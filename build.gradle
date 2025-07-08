@@ -206,4 +206,10 @@ jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.gr
 tasks.named('filepermissions') {
 	enabled = false
 }
+
+tasks.named("forbiddenPatterns").configure {
+	exclude '**/*.pyc'
+	exclude '**/*.exe'
+	exclude '**/build/**'
+}
 }
