@@ -7,16 +7,22 @@ package org.opensearch.python;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.script.*;
+import org.opensearch.threadpool.ThreadPool;
 
 public class PythonScriptEngine implements ScriptEngine {
     public static final String NAME = "python";
     private static final Logger logger = LogManager.getLogger();
     // Supported contexts (score, field, template, etc.) and their factories
-    private static Map<ScriptContext<?>, Function<String, ScriptFactory>> contexts;
+    private static Map<ScriptContext<?>, BiFunction<String, ThreadPool, ScriptFactory>> contexts;
+    private final ThreadPool threadPool;
+
+    public PythonScriptEngine(ThreadPool threadPool) {
+        this.threadPool = threadPool;
+    }
 
     static {
         PythonScriptEngine.contexts =
@@ -44,7 +50,7 @@ public class PythonScriptEngine implements ScriptEngine {
                             + context.name
                             + "]");
         }
-        ScriptFactory factory = contexts.get(context).apply(code);
+        ScriptFactory factory = contexts.get(context).apply(code, threadPool);
         return context.factoryClazz.cast(factory);
     }
 

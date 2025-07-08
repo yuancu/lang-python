@@ -10,19 +10,23 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.script.ScriptFactory;
 import org.opensearch.script.TemplateScript;
+import org.opensearch.threadpool.ThreadPool;
 
 public class PythonTemplateScript {
     private static final Logger logger = LogManager.getLogger();
 
-    public static TemplateScriptFactory newTemplateScriptFactory(String code) {
-        return new TemplateScriptFactory(code);
+    public static TemplateScriptFactory newTemplateScriptFactory(
+            String code, ThreadPool threadPool) {
+        return new TemplateScriptFactory(code, threadPool);
     }
 
     public static class TemplateScriptFactory implements TemplateScript.Factory, ScriptFactory {
         private final String code;
+        private final ThreadPool threadPool;
 
-        TemplateScriptFactory(String code) {
+        TemplateScriptFactory(String code, ThreadPool threadPool) {
             this.code = code;
+            this.threadPool = threadPool;
         }
 
         @Override
@@ -31,7 +35,7 @@ public class PythonTemplateScript {
                 @Override
                 public String execute() {
                     logger.debug("Executing template script with code: {}", code);
-                    return executePython(code, params);
+                    return executePython(threadPool, code, params);
                 }
             };
         }
@@ -41,8 +45,10 @@ public class PythonTemplateScript {
             return true;
         }
 
-        private static String executePython(String code, Map<String, ?> params) {
-            String result = ExecutionUtils.executePythonAsString(code, params, null, null);
+        private static String executePython(
+                ThreadPool threadPool, String code, Map<String, ?> params) {
+            String result =
+                    ExecutionUtils.executePythonAsString(threadPool, code, params, null, null);
             if (result == null) {
                 logger.warn("Did not get any result from Python execution");
                 return "";

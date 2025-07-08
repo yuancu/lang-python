@@ -8,7 +8,6 @@ package org.opensearch.python;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -21,6 +20,7 @@ import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
 import org.graalvm.python.embedding.GraalPyResources;
+import org.opensearch.threadpool.ThreadPool;
 
 public class ExecutionUtils {
     private static final Logger logger = LogManager.getLogger();
@@ -44,8 +44,12 @@ public class ExecutionUtils {
     }
 
     public static Value executePython(
-            String code, Map<String, ?> params, Map<String, ?> doc, Double score) {
-        try (final ExecutorService executor = Executors.newSingleThreadExecutor();
+            ThreadPool threadPool,
+            String code,
+            Map<String, ?> params,
+            Map<String, ?> doc,
+            Double score) {
+        try (final ExecutorService executor = threadPool.executor(ThreadPool.Names.GENERIC);
                 // A working context without capabilities to import packages:
                 // Context context = Context.newBuilder("python")
                 //            .sandbox(SandboxPolicy.TRUSTED)
@@ -76,8 +80,12 @@ public class ExecutionUtils {
     }
 
     public static String executePythonAsString(
-            String code, Map<String, ?> params, Map<String, ?> doc, Double score) {
-        Value result = executePython(code, params, doc, score);
+            ThreadPool threadPool,
+            String code,
+            Map<String, ?> params,
+            Map<String, ?> doc,
+            Double score) {
+        Value result = executePython(threadPool, code, params, doc, score);
         if (result == null) {
             logger.debug("Did not get any result from Python execution");
             return "";

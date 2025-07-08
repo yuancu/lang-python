@@ -25,6 +25,7 @@ import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptEngine;
+import org.opensearch.threadpool.ThreadPool;
 
 /**
  *
@@ -43,7 +44,7 @@ public class PythonModulePlugin extends Plugin implements ScriptPlugin, ActionPl
 
     @Override
     public ScriptEngine getScriptEngine(Settings settings, Collection<ScriptContext<?>> contexts) {
-        return new PythonScriptEngine();
+        return new PythonScriptEngine(new ThreadPool(settings));
     }
 
     /**
