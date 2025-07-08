@@ -201,4 +201,9 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 testClusters.yamlRestTest {
 jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
 }
+
+// Skip filepermissions check since the generated python binaries will be executable
+tasks.named('filepermissions') {
+	enabled = false
+}
 }
