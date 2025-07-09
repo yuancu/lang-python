@@ -7,6 +7,7 @@ package org.opensearch.python;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -84,14 +85,19 @@ public class ExecutionUtils {
                 }
                 throw new ScriptException(
                         String.format(
-                                "Script execution timed out after %d seconds", TIMEOUT_IN_SECONDS),
+                                Locale.ROOT,
+                                "Script execution timed out after %d seconds",
+                                TIMEOUT_IN_SECONDS),
                         e,
                         List.of(),
                         code,
                         "python");
             } catch (ExecutionException | InterruptedException e) {
                 throw new ScriptException(
-                        String.format("Script execution failed with error: %s", e.getMessage()),
+                        String.format(
+                                Locale.ROOT,
+                                "Script execution failed with error: %s",
+                                e.getMessage()),
                         e,
                         List.of(),
                         code,
