@@ -23,6 +23,7 @@ import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
 import org.graalvm.python.embedding.GraalPyResources;
+import org.opensearch.python.phase.SemanticAnalyzer;
 import org.opensearch.script.ScriptException;
 import org.opensearch.threadpool.ThreadPool;
 
@@ -53,6 +54,8 @@ public class ExecutionUtils {
             Map<String, ?> params,
             Map<String, ?> doc,
             Double score) {
+        SemanticAnalyzer analyzer = new SemanticAnalyzer(code);
+        analyzer.checkSemantic();
         try (final ExecutorService executor = threadPool.executor(ThreadPool.Names.GENERIC);
                 // A working context without capabilities to import packages:
                 // Context context = Context.newBuilder("python")
