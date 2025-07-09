@@ -79,7 +79,7 @@ public class PythonExecuteAction extends ActionType<PythonExecuteAction.Response
             Objects.requireNonNull(script);
             if (!Objects.equals(script.getLang(), "python")) {
                 logger.warn(
-                        "Got a script with language [{}] in a PythoExecuteAction request, ignoring"
+                        "Got a script with language [{}] in a PythonExecuteAction request, ignoring"
                                 + " it and setting it to python...",
                         script.getLang());
             }

@@ -6,7 +6,9 @@
 package org.opensearch.python;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -20,11 +22,12 @@ import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
 import org.graalvm.python.embedding.GraalPyResources;
+import org.opensearch.script.ScriptException;
 import org.opensearch.threadpool.ThreadPool;
 
 public class ExecutionUtils {
     private static final Logger logger = LogManager.getLogger();
-    @Getter @Setter private static int TIMEOUT_IN_SECONDS = 10;
+    @Getter @Setter private static int TIMEOUT_IN_SECONDS = 20;
 
     private static Value executeWorker(
             Context context, String code, Map<String, ?> params, Map<String, ?> doc, Double score) {
@@ -69,13 +72,31 @@ public class ExecutionUtils {
             try {
                 return futureResult.get(TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
             } catch (TimeoutException e) {
-                context.interrupt(Duration.ZERO);
-                logger.debug("Script not evaluated within 10 seconds, interrupted.");
-                return null;
+                try {
+                    context.interrupt(Duration.ZERO);
+                } catch (TimeoutException ex) {
+                    throw new ScriptException(
+                            "Failed to interrupt timed out script execution",
+                            e,
+                            List.of(),
+                            code,
+                            "python");
+                }
+                throw new ScriptException(
+                        String.format(
+                                "Script execution timed out after %d seconds", TIMEOUT_IN_SECONDS),
+                        e,
+                        List.of(),
+                        code,
+                        "python");
+            } catch (ExecutionException | InterruptedException e) {
+                throw new ScriptException(
+                        String.format("Script execution failed with error: %s", e.getMessage()),
+                        e,
+                        List.of(),
+                        code,
+                        "python");
             }
-        } catch (Exception e) {
-            logger.error("Failed to run python code", e);
-            return null;
         }
     }
 
