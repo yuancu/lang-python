@@ -28,7 +28,7 @@ plugins {
 id 'java'
 id 'idea'
 id 'eclipse'
-id 'org.graalvm.buildtools.native' version '0.10.6'
+id 'org.graalvm.buildtools.native' version '0.11.1'
 id 'org.graalvm.python' version '24.2.1'
 id 'com.diffplug.spotless' version '7.0.3'
 }
