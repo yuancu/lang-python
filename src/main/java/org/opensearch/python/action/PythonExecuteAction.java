@@ -18,20 +18,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.ActionType;
+import org.opensearch.action.ActionRequest;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.single.shard.SingleShardRequest;
-import org.opensearch.action.support.single.shard.TransportSingleShardAction;
-import org.opensearch.cluster.ClusterState;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.routing.ShardsIterator;
-import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.common.io.stream.Writeable;
-import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.xcontent.ConstructingObjectParser;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -58,7 +52,7 @@ public class PythonExecuteAction extends ActionType<PythonExecuteAction.Response
         super(NAME, Response::new);
     }
 
-    public static class Request extends SingleShardRequest<Request> implements ToXContentObject {
+    public static class Request extends ActionRequest implements ToXContentObject {
         private static final ParseField SCRIPT_FIELD = new ParseField("script");
         private static final ConstructingObjectParser<Request, Void> PARSER =
                 new ConstructingObjectParser<>(
@@ -141,6 +135,11 @@ public class PythonExecuteAction extends ActionType<PythonExecuteAction.Response
             this.result = result;
         }
 
+        Response(StreamInput in) throws IOException {
+            super(in);
+            this.result = in.readGenericValue();
+        }
+
         public Object getResult() {
             return result;
         }
@@ -176,61 +175,31 @@ public class PythonExecuteAction extends ActionType<PythonExecuteAction.Response
         }
     }
 
-    public static class TransportAction extends TransportSingleShardAction<Request, Response> {
+    public static class TransportAction extends HandledTransportAction<Request, Response> {
 
         private final ScriptService scriptService;
 
         @Inject
         public TransportAction(
-                ThreadPool threadPool,
                 TransportService transportService,
                 ActionFilters actionFilters,
-                IndexNameExpressionResolver indexNameExpressionResolver,
-                ScriptService scriptService,
-                ClusterService clusterService) {
-            super(
-                    NAME,
-                    threadPool,
-                    clusterService,
-                    transportService,
-                    actionFilters,
-                    indexNameExpressionResolver,
-                    Request::new,
-                    ThreadPool.Names.MANAGEMENT);
+                ScriptService scriptService) {
+            super(NAME, transportService, actionFilters, Request::new);
             this.scriptService = scriptService;
         }
 
         @Override
-        protected Response shardOperation(Request request, ShardId shardId) throws IOException {
-            return innerShardOperation(request, scriptService);
-        }
-
-        static Response innerShardOperation(Request request, ScriptService scriptService)
-                throws IOException {
-            // Execute the script using the Python script engine
-            TemplateScript.Factory factory =
-                    scriptService.compile(request.script, TemplateScript.CONTEXT);
-            TemplateScript templateScript = factory.newInstance(Collections.emptyMap());
-            String result = templateScript.execute();
-            return new Response(result);
-        }
-
-        @Override
-        protected Writeable.Reader<Response> getResponseReader() {
-            return Response::new;
-        }
-
-        @Override
-        protected boolean resolveIndex(Request request) {
-            return false;
-        }
-
-        @Override
-        protected ShardsIterator shards(
-                ClusterState state,
-                TransportSingleShardAction<Request, Response>.InternalRequest request) {
-            // returns null to execute the operation locally (the node that received the request)
-            return null;
+        protected void doExecute(org.opensearch.tasks.Task task, Request request, org.opensearch.core.action.ActionListener<Response> listener) {
+            try {
+                // Execute the script using the Python script engine
+                TemplateScript.Factory factory =
+                        scriptService.compile(request.script, TemplateScript.CONTEXT);
+                TemplateScript templateScript = factory.newInstance(Collections.emptyMap());
+                String result = templateScript.execute();
+                listener.onResponse(new Response(result));
+            } catch (Exception e) {
+                listener.onFailure(e);
+            }
         }
     }
 
