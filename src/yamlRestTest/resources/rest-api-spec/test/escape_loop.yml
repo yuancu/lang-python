@@ -1,0 +1,38 @@
+"Test while true loop via _execute":
+  - do:
+      catch: bad_request
+      python.execute:
+        body:
+          script:
+            source: "while True:\n  pass"
+
+  - match: { error.root_cause.0.type: "script_exception" }
+  - match: { error.root_cause.0.reason: "Infinite loop detected: while True loop has no exit condition" }
+  - match: { error.caused_by.type: "illegal_argument_exception" }
+  - match: { error.caused_by.reason: "Infinite loop detected: while True loop has no exit condition" }
+
+---
+"Test extraneous while loop via _execute":
+  - do:
+      catch: bad_request
+      python.execute:
+        body:
+          script:
+            source: "while False:\n  pass"
+
+  - match: { error.root_cause.0.type: "script_exception" }
+  - match: { error.root_cause.0.reason: "Unreachable code: while False loop will never execute" }
+  - match: { error.caused_by.type: "illegal_argument_exception" }
+  - match: { error.caused_by.reason: "Unreachable code: while False loop will never execute" }
+
+---
+"Test infinite loop via _execute":
+  - do:
+      catch: bad_request
+      python.execute:
+        body:
+          script:
+            source: "while 1 == 1:\n  pass"
+
+  - match: { error.root_cause.0.type: "script_exception" }
+  - match: { error.root_cause.0.reason: "Script execution timed out after 20 seconds" }
