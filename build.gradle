@@ -130,6 +130,7 @@ testClusters.integTest {
 	// This installs our plugin into the testClusters
 	plugin(project.tasks.bundlePlugin.archiveFile)
 	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
+	systemProperty "java.security.policy", "all.policy"
 }
 
 run {
@@ -199,6 +200,7 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 
 testClusters.yamlRestTest {
 jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
+systemProperty "java.security.policy", "all.policy"
 }
 
 // Skip filepermissions check since the generated python binaries will be executable
