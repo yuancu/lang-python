@@ -54,7 +54,7 @@ public class ExecutionUtils {
             Map<String, ?> params,
             Map<String, ?> doc,
             Double score) {
-        SemanticAnalyzer analyzer = new SemanticAnalyzer(code);
+        SemanticAnalyzer analyzer = new SemanticAnalyzer(code + '\n');
         analyzer.checkSemantic();
         final ExecutorService executor = threadPool.executor(ThreadPool.Names.GENERIC);
         // A working context without capabilities to import packages:
