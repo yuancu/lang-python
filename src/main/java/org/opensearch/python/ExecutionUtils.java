@@ -56,21 +56,21 @@ public class ExecutionUtils {
             Double score) {
         SemanticAnalyzer analyzer = new SemanticAnalyzer(code);
         analyzer.checkSemantic();
-        try (final ExecutorService executor = threadPool.executor(ThreadPool.Names.GENERIC);
-                // A working context without capabilities to import packages:
-                // Context context = Context.newBuilder("python")
-                //            .sandbox(SandboxPolicy.TRUSTED)
-                //            .allowHostAccess(HostAccess.ALL).build()
-                final Context context =
-                        GraalPyResources.contextBuilder()
-                                .sandbox(SandboxPolicy.TRUSTED)
-                                .allowHostAccess(HostAccess.ALL)
-                                // The following 2 options are necessary for importing 3-rd party
-                                // libraries
-                                // that load native libraries
-                                .allowExperimentalOptions(true)
-                                .option("python.IsolateNativeModules", "true")
-                                .build()) {
+        final ExecutorService executor = threadPool.executor(ThreadPool.Names.GENERIC);
+        // A working context without capabilities to import packages:
+        // Context context = Context.newBuilder("python")
+        //            .sandbox(SandboxPolicy.TRUSTED)
+        //            .allowHostAccess(HostAccess.ALL).build()
+        try (final Context context =
+                GraalPyResources.contextBuilder()
+                        .sandbox(SandboxPolicy.TRUSTED)
+                        .allowHostAccess(HostAccess.ALL)
+                        // The following 2 options are necessary for importing 3-rd party
+                        // libraries
+                        // that load native libraries
+                        .allowExperimentalOptions(true)
+                        .option("python.IsolateNativeModules", "true")
+                        .build()) {
             final Future<Value> futureResult =
                     executor.submit(() -> executeWorker(context, code, params, doc, score));
             try {

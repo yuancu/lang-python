@@ -9,12 +9,13 @@ import org.opensearch.gradle.test.RestIntegTestTask
 buildscript {
 ext {
 	opensearch_group = "org.opensearch"
-	opensearch_version = System.getProperty("opensearch.version", "3.2.0-SNAPSHOT")
+	opensearch_version = System.getProperty("opensearch.version", "3.4.0-SNAPSHOT")
 }
 
 repositories {
 	mavenLocal()
 	maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+	maven { url "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
 	mavenCentral()
 	maven { url = "https://plugins.gradle.org/m2/" }
 }
@@ -28,8 +29,8 @@ plugins {
 id 'java'
 id 'idea'
 id 'eclipse'
-id 'org.graalvm.buildtools.native' version '0.10.6'
-id 'org.graalvm.python' version '24.2.1'
+id 'org.graalvm.buildtools.native' version '0.11.2'
+id 'org.graalvm.python' version '25.0.1'
 id 'com.diffplug.spotless' version '7.0.3'
 }
 
@@ -44,7 +45,7 @@ version = opensearch_version - "-SNAPSHOT" + ".0"
 }
 
 ext {
-graalVersion = '24.2.1'
+graalVersion = '25.0.1'
 antlr4Version = '4.13.2'
 }
 
@@ -97,6 +98,7 @@ validateNebulaPom.enabled = false
 repositories {
 	mavenLocal()
 	maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+	maven { url "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
 	mavenCentral()
 	maven { url = "https://plugins.gradle.org/m2/" }
 }
