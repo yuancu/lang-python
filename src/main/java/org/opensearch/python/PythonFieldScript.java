@@ -13,7 +13,6 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
-import org.graalvm.polyglot.io.IOAccess;
 import org.opensearch.script.FieldScript;
 import org.opensearch.search.lookup.SearchLookup;
 import org.opensearch.threadpool.ThreadPool;
@@ -75,7 +74,6 @@ public class PythonFieldScript {
         try (Context context =
                 Context.newBuilder("python")
                         .sandbox(SandboxPolicy.TRUSTED)
-                        .allowIO(IOAccess.ALL)
                         .allowAllAccess(false)
                         .build()) {
 
