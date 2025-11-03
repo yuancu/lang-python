@@ -13,7 +13,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.IndexSearcher;
-import org.graalvm.polyglot.Value;
 import org.opensearch.script.ScoreScript;
 import org.opensearch.search.lookup.SearchLookup;
 import org.opensearch.threadpool.ThreadPool;
@@ -109,11 +108,12 @@ public class PythonScoreScript {
                 Map<String, ?> params,
                 Map<String, ?> doc,
                 double score) {
-            Value evaluatedVal = ExecutionUtils.executePython(threadPool, code, params, doc, score);
+            Object evaluatedVal =
+                    ExecutionUtils.executePython(threadPool, code, params, doc, score);
             if (evaluatedVal == null) {
                 return 0;
             }
-            return evaluatedVal.asDouble();
+            return ((Number) evaluatedVal).doubleValue();
         }
     }
 }
