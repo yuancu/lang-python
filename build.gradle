@@ -52,9 +52,6 @@ antlr4Version = '4.13.2'
 dependencies {
 implementation "org.graalvm.polyglot:polyglot:$graalVersion"
 implementation "org.graalvm.polyglot:python-community:$graalVersion"
-implementation "org.graalvm.truffle:truffle-api:$graalVersion"
-implementation "org.graalvm.sdk:nativeimage:$graalVersion"
-implementation "org.graalvm.sdk:word:$graalVersion"
 implementation "org.antlr:antlr4-runtime:$antlr4Version"
 implementation 'org.projectlombok:lombok:1.18.38'
 }
