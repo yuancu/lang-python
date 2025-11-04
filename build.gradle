@@ -132,7 +132,7 @@ if (System.getProperty("test.debug") != null) {
 }
 
 testClusters.integTest {
-testDistribution = "INTEG_TEST"
+testDistribution = System.getProperty('os.name').toLowerCase().contains('windows') ? "DEFAULT" : "INTEG_TEST"
 
 // This installs our plugin into the testClusters
 plugin(project.tasks.bundlePlugin.archiveFile)
