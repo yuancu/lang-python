@@ -52,6 +52,7 @@ antlr4Version = '4.13.2'
 dependencies {
 implementation "org.graalvm.polyglot:polyglot:$graalVersion"
 implementation "org.graalvm.polyglot:python-community:$graalVersion"
+implementation "org.graalvm.sdk:nativeimage:$graalVersion"
 implementation "org.antlr:antlr4-runtime:$antlr4Version"
 implementation 'org.projectlombok:lombok:1.18.38'
 }
@@ -130,7 +131,12 @@ testDistribution = "INTEG_TEST"
 // This installs our plugin into the testClusters
 plugin(project.tasks.bundlePlugin.archiveFile)
 systemProperty 'java.security.policy', "${project.rootDir}/all.policy"
-jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
+jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile}"
+jvmArgs "--add-modules=org.graalvm.polyglot"
+if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+	systemProperty 'polyglot.engine.WarnInterpreterOnly', 'false'
+	systemProperty 'user.dir', project.rootDir.absolutePath
+}
 }
 
 run {
@@ -197,7 +203,12 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 
 testClusters.yamlRestTest {
 	systemProperty 'java.security.policy', "${project.rootDir}/all.policy"
-	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
+	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile}"
+	jvmArgs "--add-modules=org.graalvm.polyglot"
+if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+	systemProperty 'polyglot.engine.WarnInterpreterOnly', 'false'
+	systemProperty 'user.dir', project.rootDir.absolutePath
+}
 }
 
 // Skip filepermissions check since the generated python binaries will be executable
