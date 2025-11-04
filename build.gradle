@@ -129,7 +129,8 @@ testDistribution = "INTEG_TEST"
 
 // This installs our plugin into the testClusters
 plugin(project.tasks.bundlePlugin.archiveFile)
-jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
+systemProperty 'java.security.policy', "${project.rootDir}/all.policy"
+jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
 if (System.getProperty('os.name').toLowerCase().contains('windows')) {
 systemProperty 'polyglot.engine.WarnInterpreterOnly', 'false'
 systemProperty 'user.dir', project.rootDir.absolutePath
@@ -199,7 +200,8 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 }
 
 testClusters.yamlRestTest {
-	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
+	systemProperty 'java.security.policy', "${project.rootDir}/all.policy"
+	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
 if (System.getProperty('os.name').toLowerCase().contains('windows')) {
 	systemProperty 'polyglot.engine.WarnInterpreterOnly', 'false'
 	systemProperty 'user.dir', project.rootDir.absolutePath
