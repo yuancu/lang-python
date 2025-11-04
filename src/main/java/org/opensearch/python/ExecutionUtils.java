@@ -29,6 +29,7 @@ import org.opensearch.threadpool.ThreadPool;
 
 public class ExecutionUtils {
     private static final Logger logger = LogManager.getLogger();
+    private static final String MODULE_META_SIMPLE_NAME = "module";
     @Getter @Setter private static int TIMEOUT_IN_SECONDS = 20;
 
     private static Value executeWorker(
@@ -48,7 +49,7 @@ public class ExecutionUtils {
         return context.eval("python", code);
     }
 
-    public static Value executePython(
+    public static Object executePython(
             ThreadPool threadPool,
             String code,
             Map<String, ?> params,
@@ -61,7 +62,7 @@ public class ExecutionUtils {
         // Context context = Context.newBuilder("python")
         //            .sandbox(SandboxPolicy.TRUSTED)
         //            .allowHostAccess(HostAccess.ALL).build()
-        try (final Context context =
+        final Context context =
                 GraalPyResources.contextBuilder()
                         .sandbox(SandboxPolicy.TRUSTED)
                         .allowHostAccess(HostAccess.ALL)
@@ -70,11 +71,19 @@ public class ExecutionUtils {
                         // that load native libraries
                         .allowExperimentalOptions(true)
                         .option("python.IsolateNativeModules", "true")
-                        .build()) {
+                        .build();
+
+        try {
             final Future<Value> futureResult =
                     executor.submit(() -> executeWorker(context, code, params, doc, score));
+
             try {
-                return futureResult.get(TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
+                Value result = futureResult.get(TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
+
+                // Extract the value before closing the context
+                Object extractedValue = extractValueBeforeContextClose(result);
+                return extractedValue;
+
             } catch (TimeoutException e) {
                 try {
                     context.interrupt(Duration.ZERO);
@@ -106,6 +115,49 @@ public class ExecutionUtils {
                         code,
                         "python");
             }
+        } catch (Exception e) {
+            throw new ScriptException(
+                    String.format(
+                            Locale.ROOT, "Script execution failed with error: %s", e.getMessage()),
+                    e,
+                    List.of(),
+                    code,
+                    "python");
+        } finally {
+            // Ensure context is always closed after execution completes
+            try {
+                context.close();
+            } catch (Exception e) {
+                logger.warn("Error closing Python context: {}", e.getMessage());
+            }
+        }
+    }
+
+    private static Object extractValueBeforeContextClose(Value result) {
+        if (result == null || result.isNull()) {
+            return null;
+        }
+
+        try {
+            // If it's a module object, treat it as None/empty
+            if (result.getMetaObject() != null
+                    && MODULE_META_SIMPLE_NAME.equals(result.getMetaObject().getMetaSimpleName())) {
+                return null;
+            }
+
+            if (result.isString()) {
+                return result.asString();
+            }
+            if (result.isNumber()) {
+                return result.asDouble();
+            }
+            if (result.isBoolean()) {
+                return result.asBoolean();
+            }
+            return result.toString();
+        } catch (Exception e) {
+            logger.warn("Error extracting value from result: {}", e.getMessage());
+            return result.toString();
         }
     }
 
@@ -115,17 +167,17 @@ public class ExecutionUtils {
             Map<String, ?> params,
             Map<String, ?> doc,
             Double score) {
-        Value result = executePython(threadPool, code, params, doc, score);
+        Object result = executePython(threadPool, code, params, doc, score);
         if (result == null) {
             logger.debug("Did not get any result from Python execution");
             return "";
         }
-        if (result.isString()) {
-            return result.asString();
-        } else if (result.isNumber()) {
-            return String.valueOf(result.asDouble());
-        } else if (result.isBoolean()) {
-            return String.valueOf(result.asBoolean());
+        if (result instanceof String) {
+            return (String) result;
+        } else if (result instanceof Double) {
+            return String.valueOf((Double) result);
+        } else if (result instanceof Boolean) {
+            return String.valueOf((Boolean) result);
         } else {
             logger.warn(
                     "Python execution only accepts string, number, or boolean as results for the"
