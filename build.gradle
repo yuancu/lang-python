@@ -69,6 +69,11 @@ ext {
 failOnJavadocWarning = false
 }
 
+javadoc {
+	options.addStringOption('Xdoclint:none', '-quiet')
+	failOnError = false
+}
+
 // This is to generate a plugin-descriptor.properties file that is required by all opensearch plugins
 // see https://github.com/opensearch-project/opensearch-plugins/blob/main/BUILDING.md#plugin-descriptorproperties
 opensearchplugin {
