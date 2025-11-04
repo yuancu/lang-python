@@ -52,8 +52,8 @@ antlr4Version = '4.13.2'
 dependencies {
 api "org.graalvm.polyglot:polyglot:$graalVersion"
 api "org.graalvm.polyglot:python-community:$graalVersion"
-api "org.graalvm.truffle:truffle-api:$graalVersion"
 api "org.graalvm.sdk:nativeimage:$graalVersion"
+api "org.graalvm.sdk:word:$graalVersion"
 api "org.antlr:antlr4-runtime:$antlr4Version"
 implementation 'org.projectlombok:lombok:1.18.38'
 }
@@ -107,6 +107,7 @@ repositories {
 
 test {
 	include '**/*Tests.class'
+	jvmArgs "-Dpolyglot.engine.CacheStore=memory"
 }
 
 tasks.register('integTest', RestIntegTestTask) {
@@ -131,7 +132,7 @@ testClusters.integTest {
 
 	// This installs our plugin into the testClusters
 	plugin(project.tasks.bundlePlugin.archiveFile)
-	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
+	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot -Dpolyglot.engine.CacheStore=memory -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile}"
 }
 
 run {
@@ -200,7 +201,7 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 }
 
 testClusters.yamlRestTest {
-jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
+jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot -Dpolyglot.engine.CacheStore=memory -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile}"
 }
 
 // Skip filepermissions check since the generated python binaries will be executable
