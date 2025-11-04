@@ -131,10 +131,6 @@ testDistribution = "INTEG_TEST"
 plugin(project.tasks.bundlePlugin.archiveFile)
 systemProperty 'java.security.policy', "${project.rootDir}/all.policy"
 jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
-if (System.getProperty('os.name').toLowerCase().contains('windows')) {
-systemProperty 'polyglot.engine.WarnInterpreterOnly', 'false'
-systemProperty 'user.dir', project.rootDir.absolutePath
-}
 }
 
 run {
@@ -202,10 +198,6 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 testClusters.yamlRestTest {
 	systemProperty 'java.security.policy', "${project.rootDir}/all.policy"
 	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
-if (System.getProperty('os.name').toLowerCase().contains('windows')) {
-	systemProperty 'polyglot.engine.WarnInterpreterOnly', 'false'
-	systemProperty 'user.dir', project.rootDir.absolutePath
-}
 }
 
 // Skip filepermissions check since the generated python binaries will be executable
