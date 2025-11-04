@@ -142,6 +142,9 @@ jvmArgs "--add-modules=org.graalvm.polyglot"
 if (System.getProperty('os.name').toLowerCase().contains('windows')) {
 	systemProperty 'polyglot.engine.WarnInterpreterOnly', 'false'
 	systemProperty 'user.dir', project.rootDir.absolutePath
+	// Work around Windows module system issues
+	jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED'
+	jvmArgs '--add-opens=java.base/java.util=ALL-UNNAMED'
 }
 }
 
@@ -214,6 +217,9 @@ testClusters.yamlRestTest {
 if (System.getProperty('os.name').toLowerCase().contains('windows')) {
 	systemProperty 'polyglot.engine.WarnInterpreterOnly', 'false'
 	systemProperty 'user.dir', project.rootDir.absolutePath
+	// Work around Windows module system issues
+	jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED'
+	jvmArgs '--add-opens=java.base/java.util=ALL-UNNAMED'
 }
 }
 
