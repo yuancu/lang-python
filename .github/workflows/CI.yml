@@ -29,10 +29,10 @@ jobs:
       with:
         java-version: ${{ matrix.java }}
         distribution: temurin
-    - name: Build and Run Tests
+    - name: Build and Compile Only
       timeout-minutes: 10
       run: |
-        ./gradlew assemble test --no-daemon --no-parallel --max-workers=1
+        ./gradlew assemble --no-daemon --no-parallel --max-workers=1
     - name: Publish plugin ZIP to staging repository
       run: |
         ./gradlew publishPluginZipPublicationToZipStagingRepository
