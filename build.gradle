@@ -37,7 +37,8 @@ id 'com.diffplug.spotless' version '7.0.3'
 apply plugin: 'opensearch.yaml-rest-test'
 apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.pluginzip'
-apply plugin: 'opensearch.java-agent'
+// Temporarily disable java-agent plugin as it may cause hanging on some platforms
+// apply plugin: 'opensearch.java-agent'
 
 allprojects {
 group = 'org.opensearch'
@@ -132,7 +133,7 @@ if (System.getProperty("test.debug") != null) {
 }
 
 testClusters.integTest {
-testDistribution = System.getProperty('os.name').toLowerCase().contains('windows') ? "DEFAULT" : "INTEG_TEST"
+testDistribution = "INTEG_TEST"
 
 // This installs our plugin into the testClusters
 plugin(project.tasks.bundlePlugin.archiveFile)
