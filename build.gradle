@@ -37,10 +37,7 @@ id 'com.diffplug.spotless' version '7.0.3'
 apply plugin: 'opensearch.yaml-rest-test'
 apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.pluginzip'
-// Apply java-agent plugin conditionally to avoid hanging on some platforms
-if (System.getProperty('os.name').toLowerCase().contains('linux')) {
-    apply plugin: 'opensearch.java-agent'
-}
+apply plugin: 'opensearch.java-agent'
 
 allprojects {
 group = 'org.opensearch'
