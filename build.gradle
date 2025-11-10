@@ -205,6 +205,11 @@ tasks.named('filepermissions') {
 	enabled = false
 }
 
+// Exclude ANTLR-generated code from javadoc warnings
+tasks.named('javadoc') {
+options.addStringOption('Xdoclint:all,-missing', '-quiet')
+}
+
 tasks.named("forbiddenPatterns").configure {
 	exclude '**/*.pyc'
 	exclude '**/*.exe'
