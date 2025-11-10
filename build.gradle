@@ -52,6 +52,7 @@ antlr4Version = '4.13.2'
 dependencies {
 implementation "org.graalvm.polyglot:polyglot:$graalVersion"
 implementation "org.graalvm.polyglot:python-community:$graalVersion"
+implementation "org.graalvm.sdk:nativeimage:$graalVersion"
 implementation "org.antlr:antlr4-runtime:$antlr4Version"
 implementation 'org.projectlombok:lombok:1.18.38'
 }
@@ -62,7 +63,7 @@ def packagePath = 'org.opensearch'
 def pathToPlugin = 'python'
 def pluginClassName = 'PythonModulePlugin'
 def pythonLauncherLibDir = layout.buildDirectory.dir('libs')
-def appendModuleNames = "org.graalvm.polyglot,org.graalvm.sdk.nativeimage,jdk.incubator.vector";
+def appendModuleNames = "org.graalvm.polyglot,jdk.incubator.vector";
 
 ext {
 // Do not fail on `javadoc` warning (ANTLR generated code)
