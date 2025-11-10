@@ -129,7 +129,7 @@ testDistribution = "INTEG_TEST"
 
 // This installs our plugin into the testClusters
 plugin(project.tasks.bundlePlugin.archiveFile)
-jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
+jvmArgs "--enable-native-access=ALL-UNNAMED --module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
 }
 
 run {
@@ -195,7 +195,7 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 }
 
 testClusters.yamlRestTest {
-	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
+	jvmArgs "--enable-native-access=ALL-UNNAMED --module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
 }
 
 // Skip filepermissions check since the generated python binaries will be executable
