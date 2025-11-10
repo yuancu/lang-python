@@ -81,20 +81,26 @@ public class ExecutionUtils {
                 Value result = futureResult.get(TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
 
                 // Extract the value before closing the context
-                Object extractedValue = extractValueBeforeContextClose(result);
-                return extractedValue;
+                return extractValueBeforeContextClose(result);
 
             } catch (TimeoutException e) {
-                try {
-                    context.interrupt(Duration.ZERO);
-                } catch (TimeoutException ex) {
-                    throw new ScriptException(
-                            "Failed to interrupt timed out script execution",
-                            e,
-                            List.of(),
-                            code,
-                            "python");
-                }
+                futureResult.cancel(true);
+
+                // Force close context immediately for import-related hangs
+                executor.submit(
+                        () -> {
+                            try {
+                                context.interrupt(Duration.ofSeconds(1));
+                            } catch (Exception ex) {
+                                logger.debug("Failed to interrupt context: {}", ex.getMessage());
+                            }
+                            try {
+                                context.close(true);
+                            } catch (Exception ex) {
+                                logger.debug("Failed to force close context: {}", ex.getMessage());
+                            }
+                        });
+
                 throw new ScriptException(
                         String.format(
                                 Locale.ROOT,
@@ -126,9 +132,9 @@ public class ExecutionUtils {
         } finally {
             // Ensure context is always closed after execution completes
             try {
-                context.close();
+                context.close(true);
             } catch (Exception e) {
-                logger.warn("Error closing Python context: {}", e.getMessage());
+                logger.debug("Context already closed or error closing: {}", e.getMessage());
             }
         }
     }
@@ -175,9 +181,9 @@ public class ExecutionUtils {
         if (result instanceof String) {
             return (String) result;
         } else if (result instanceof Double) {
-            return String.valueOf((Double) result);
+            return String.valueOf(result);
         } else if (result instanceof Boolean) {
-            return String.valueOf((Boolean) result);
+            return String.valueOf(result);
         } else {
             logger.warn(
                     "Python execution only accepts string, number, or boolean as results for the"
