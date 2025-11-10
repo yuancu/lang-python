@@ -50,9 +50,10 @@ antlr4Version = '4.13.2'
 }
 
 dependencies {
-api "org.graalvm.polyglot:polyglot:$graalVersion"
-api "org.graalvm.polyglot:python-community:$graalVersion"
-api "org.antlr:antlr4-runtime:$antlr4Version"
+implementation "org.graalvm.polyglot:polyglot:$graalVersion"
+implementation "org.graalvm.polyglot:python-community:$graalVersion"
+implementation "org.graalvm.sdk:graal-sdk:$graalVersion"
+implementation "org.antlr:antlr4-runtime:$antlr4Version"
 implementation 'org.projectlombok:lombok:1.18.38'
 }
 
@@ -62,6 +63,7 @@ def packagePath = 'org.opensearch'
 def pathToPlugin = 'python'
 def pluginClassName = 'PythonModulePlugin'
 def pythonLauncherLibDir = layout.buildDirectory.dir('libs')
+def appendModuleNames = "org.graalvm.polyglot,jdk.incubator.vector";
 
 ext {
 // Do not fail on `javadoc` warning (ANTLR generated code)
@@ -79,14 +81,14 @@ noticeFile = rootProject.file('NOTICE.txt')
 }
 
 publishing {
-	publications {
-		pluginZip(MavenPublication) { publication ->
-			pom {
-			name = pluginName
-			description = pluginDescription
-			}
-		}
+publications {
+	pluginZip(MavenPublication) { publication ->
+	pom {
+		name = pluginName
+		description = pluginDescription
 	}
+	}
+}
 }
 
 // This requires an additional Jar not published as part of build-tools
@@ -96,15 +98,15 @@ loggerUsageCheck.enabled = false
 validateNebulaPom.enabled = false
 
 repositories {
-	mavenLocal()
-	maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
-	maven { url "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
-	mavenCentral()
-	maven { url = "https://plugins.gradle.org/m2/" }
+mavenLocal()
+maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+maven { url "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
+mavenCentral()
+maven { url = "https://plugins.gradle.org/m2/" }
 }
 
 test {
-	include '**/*Tests.class'
+include '**/*Tests.class'
 }
 
 tasks.register('integTest', RestIntegTestTask) {
@@ -117,23 +119,23 @@ tasks.named("check").configure { dependsOn("integTest") }
 tasks.named("publishNebulaPublicationToMavenLocal").configure { dependsOn "generatePomFileForPluginZipPublication" }
 
 integTest {
-	dependsOn 'copyDependencies'
-	// The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
-	if (System.getProperty("test.debug") != null) {
-		jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
-	}
+dependsOn 'copyDependencies'
+// The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
+if (System.getProperty("test.debug") != null) {
+	jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+}
 }
 
 testClusters.integTest {
-	testDistribution = "INTEG_TEST"
+testDistribution = "INTEG_TEST"
 
-	// This installs our plugin into the testClusters
-	plugin(project.tasks.bundlePlugin.archiveFile)
-	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
+// This installs our plugin into the testClusters
+plugin(project.tasks.bundlePlugin.archiveFile)
+jvmArgs "--enable-native-access=ALL-UNNAMED --module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
 }
 
 run {
-	useCluster testClusters.integTest
+useCluster testClusters.integTest
 }
 
 // updateVersion: Task to auto update version to the next development iteration
@@ -179,10 +181,7 @@ java {
 	googleJavaFormat('1.17.0').aosp().reflowLongStrings().skipJavadocFormatting()
 	// fix formatting of type annotations
 	formatAnnotations()
-		licenseHeader("/*\n" +
-				" * Copyright OpenSearch Contributors\n" +
-				" * SPDX-License-Identifier: Apache-2.0\n" +
-				" */\n\n")
+	licenseHeader("/*\n" + " * Copyright OpenSearch Contributors\n" + " * SPDX-License-Identifier: Apache-2.0\n" + " */\n\n")
 }
 
 // This task copies the dependencies to a 'libs' directory
@@ -198,12 +197,17 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 }
 
 testClusters.yamlRestTest {
-jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=org.graalvm.polyglot"
+	jvmArgs "--enable-native-access=ALL-UNNAMED --module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
 }
 
 // Skip filepermissions check since the generated python binaries will be executable
 tasks.named('filepermissions') {
 	enabled = false
+}
+
+// Exclude ANTLR-generated code from javadoc warnings
+tasks.named('javadoc') {
+options.addStringOption('Xdoclint:all,-missing', '-quiet')
 }
 
 tasks.named("forbiddenPatterns").configure {
