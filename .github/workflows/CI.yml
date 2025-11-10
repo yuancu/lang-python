@@ -1,4 +1,4 @@
-name: Build and Test Plugin Template
+name: Build and Test
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
         java:
           - 21
           - 23
-    name: Build and Test Plugin Template
+    name: Plugin lang-python
     runs-on: ${{ matrix.os }}
 
     steps:
