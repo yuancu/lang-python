@@ -62,6 +62,7 @@ def packagePath = 'org.opensearch'
 def pathToPlugin = 'python'
 def pluginClassName = 'PythonModulePlugin'
 def pythonLauncherLibDir = layout.buildDirectory.dir('libs')
+def appendModuleNames = "org.graalvm.polyglot,org.graalvm.sdk.nativeimage,jdk.incubator.vector";
 
 ext {
 // Do not fail on `javadoc` warning (ANTLR generated code)
@@ -129,7 +130,7 @@ testDistribution = "INTEG_TEST"
 
 // This installs our plugin into the testClusters
 plugin(project.tasks.bundlePlugin.archiveFile)
-jvmArgs "--enable-native-access=ALL-UNNAMED --module-path=${pythonLauncherLibDir.get().asFile} --add-modules=ALL-MODULE-PATH -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
+jvmArgs "--enable-native-access=ALL-UNNAMED --module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
 }
 
 run {
@@ -195,7 +196,7 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 }
 
 testClusters.yamlRestTest {
-	jvmArgs "--enable-native-access=ALL-UNNAMED --module-path=${pythonLauncherLibDir.get().asFile} --add-modules=ALL-MODULE-PATH -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
+	jvmArgs "--enable-native-access=ALL-UNNAMED --module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
 }
 
 // Skip filepermissions check since the generated python binaries will be executable
