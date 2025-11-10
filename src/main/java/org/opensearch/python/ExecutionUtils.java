@@ -23,6 +23,7 @@ import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
 import org.graalvm.python.embedding.GraalPyResources;
+import org.opensearch.common.util.concurrent.FutureUtils;
 import org.opensearch.python.phase.SemanticAnalyzer;
 import org.opensearch.script.ScriptException;
 import org.opensearch.threadpool.ThreadPool;
@@ -84,7 +85,8 @@ public class ExecutionUtils {
                 return extractValueBeforeContextClose(result);
 
             } catch (TimeoutException e) {
-                futureResult.cancel(true);
+                // future.cancel is a forbidden API
+                FutureUtils.cancel(futureResult);
 
                 // Force close context immediately for import-related hangs
                 executor.submit(
