@@ -102,8 +102,13 @@ public class ExecutionUtils {
                                 logger.debug("Failed to force close context: {}", ex.getMessage());
                             }
                         });
-
-                throw wrapWithScriptException(e, code);
+                throw wrapWithScriptException(
+                        e,
+                        String.format(
+                                Locale.ROOT,
+                                "Script execution timed out after %d seconds",
+                                TIMEOUT_IN_SECONDS),
+                        code);
             } catch (ExecutionException | InterruptedException e) {
                 throw wrapWithScriptException(e, code);
             }
@@ -123,9 +128,13 @@ public class ExecutionUtils {
     }
 
     private static ScriptException wrapWithScriptException(Exception e, String code) {
+        return wrapWithScriptException(e, "Script execution failed with error: %s", code);
+    }
+
+    private static ScriptException wrapWithScriptException(
+            Exception e, String errorFmt, String code) {
         return new ScriptException(
-                String.format(
-                        Locale.ROOT, "Script execution failed with error: %s", e.getMessage()),
+                String.format(Locale.ROOT, errorFmt, e.getMessage()),
                 e,
                 Arrays.stream(e.getStackTrace()).map(StackTraceElement::toString).toList(),
                 code,
