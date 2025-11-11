@@ -6,7 +6,7 @@
 package org.opensearch.python;
 
 import java.time.Duration;
-import java.util.List;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -103,34 +103,15 @@ public class ExecutionUtils {
                             }
                         });
 
-                throw new ScriptException(
-                        String.format(
-                                Locale.ROOT,
-                                "Script execution timed out after %d seconds",
-                                TIMEOUT_IN_SECONDS),
-                        e,
-                        List.of(),
-                        code,
-                        "python");
+                throw wrapWithScriptException(e, code);
             } catch (ExecutionException | InterruptedException e) {
-                throw new ScriptException(
-                        String.format(
-                                Locale.ROOT,
-                                "Script execution failed with error: %s",
-                                e.getMessage()),
-                        e,
-                        List.of(),
-                        code,
-                        "python");
+                throw wrapWithScriptException(e, code);
             }
+        } catch (ScriptException e) {
+            // Throw script exception as is
+            throw e;
         } catch (Exception e) {
-            throw new ScriptException(
-                    String.format(
-                            Locale.ROOT, "Script execution failed with error: %s", e.getMessage()),
-                    e,
-                    List.of(),
-                    code,
-                    "python");
+            throw wrapWithScriptException(e, code);
         } finally {
             // Ensure context is always closed after execution completes
             try {
@@ -139,6 +120,16 @@ public class ExecutionUtils {
                 logger.debug("Context already closed or error closing: {}", e.getMessage());
             }
         }
+    }
+
+    private static ScriptException wrapWithScriptException(Exception e, String code) {
+        return new ScriptException(
+                String.format(
+                        Locale.ROOT, "Script execution failed with error: %s", e.getMessage()),
+                e,
+                Arrays.stream(e.getStackTrace()).map(StackTraceElement::toString).toList(),
+                code,
+                "python");
     }
 
     private static Object extractValueBeforeContextClose(Value result) {

@@ -217,6 +217,6 @@ tasks.named("forbiddenPatterns").configure {
 }
 
 graalPy {
-  packages = ["numpy==2.2.4"]
+packages = ["numpy==2.2.4"]
 }
 }
