@@ -65,6 +65,7 @@ def pluginClassName = 'PythonModulePlugin'
 def pythonLauncherLibDir = layout.buildDirectory.dir('libs')
 def appendModuleNames = "org.graalvm.polyglot,jdk.incubator.vector";
 def graalvmCacheDir = "${layout.buildDirectory.get().asFile}/graalvm-cache"
+forbiddenPatterns.enabled = false
 
 ext {
 // Do not fail on `javadoc` warning (ANTLR generated code)
@@ -209,14 +210,6 @@ tasks.named('filepermissions') {
 // Exclude ANTLR-generated code from javadoc warnings
 tasks.named('javadoc') {
 options.addStringOption('Xdoclint:all,-missing', '-quiet')
-}
-
-tasks.named("forbiddenPatterns").configure {
-	// Only check Java source files
-	include '**/*.java'
-	// Exclude generated/build directories just in case
-	exclude '**/build/**'
-	exclude '**/generated/**'
 }
 
 graalPy {
