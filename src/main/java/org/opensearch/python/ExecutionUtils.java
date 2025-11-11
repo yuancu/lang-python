@@ -75,6 +75,10 @@ public class ExecutionUtils {
                         // that load native libraries
                         .allowExperimentalOptions(true)
                         .option("python.IsolateNativeModules", "true")
+                        // Documentation:
+                        // https://www.graalvm.org/latest/graalvm-as-a-platform/language-implementation-framework/Options
+                        .option("engine.ShowInternalStackFrames", "true")
+                        .option("engine.PrintInternalStackTrace", "true")
                         .build();
 
         try {
