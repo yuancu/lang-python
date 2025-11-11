@@ -159,11 +159,6 @@ tasks.named('thirdPartyAudit') {
 enabled = false
 }
 
-graalPy {
-// optional: specify python packages to install. E.g. "numpy==1.24.3"
-packages = []
-}
-
 spotless {
 format 'misc', {
 	// define the files to apply `misc` to
@@ -213,6 +208,8 @@ options.addStringOption('Xdoclint:all,-missing', '-quiet')
 }
 
 graalPy {
+// optional: specify python packages to install. E.g. "numpy==1.24.3"
 packages = ["numpy==2.2.4"]
+resourceDirectory = "GRAALPY-VFS/${opensearch_group}/${pluginName}"
 }
 }
