@@ -147,6 +147,7 @@ public class ExecutionUtils {
                             .map(
                                     frame ->
                                             String.format(
+                                                    Locale.ROOT,
                                                     "%s:%d in %s",
                                                     frame.getSourceLocation() != null
                                                             ? frame.getSourceLocation()
