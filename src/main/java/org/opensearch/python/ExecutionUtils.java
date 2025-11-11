@@ -7,6 +7,7 @@ package org.opensearch.python;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -14,12 +15,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.StreamSupport;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.HostAccess;
+import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
 import org.graalvm.python.embedding.GraalPyResources;
@@ -133,10 +136,36 @@ public class ExecutionUtils {
 
     private static ScriptException wrapWithScriptException(
             Exception e, String errorFmt, String code) {
+        List<String> stacktrace;
+        if (e instanceof PolyglotException || e.getCause() instanceof PolyglotException) {
+            PolyglotException pe =
+                    e instanceof PolyglotException
+                            ? (PolyglotException) e
+                            : (PolyglotException) e.getCause();
+            stacktrace =
+                    StreamSupport.stream(pe.getPolyglotStackTrace().spliterator(), false)
+                            .map(
+                                    frame ->
+                                            String.format(
+                                                    "%s:%d in %s",
+                                                    frame.getSourceLocation() != null
+                                                            ? frame.getSourceLocation()
+                                                                    .getSource()
+                                                                    .getName()
+                                                            : "<unknown>",
+                                                    frame.getSourceLocation() != null
+                                                            ? frame.getSourceLocation()
+                                                                    .getStartLine()
+                                                            : -1,
+                                                    frame.getRootName()))
+                            .toList();
+        } else {
+            stacktrace = Arrays.stream(e.getStackTrace()).map(StackTraceElement::toString).toList();
+        }
         return new ScriptException(
                 String.format(Locale.ROOT, errorFmt, e.getMessage()),
                 e,
-                Arrays.stream(e.getStackTrace()).map(StackTraceElement::toString).toList(),
+                stacktrace,
                 code,
                 "python");
     }
