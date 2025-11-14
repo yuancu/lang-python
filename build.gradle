@@ -66,7 +66,7 @@ def pluginClassName = 'PythonModulePlugin'
 def pythonLauncherLibDir = layout.buildDirectory.dir('libs')
 def appendModuleNames = "org.graalvm.polyglot,jdk.incubator.vector";
 def graalvmCacheDir = "${layout.buildDirectory.get().asFile}/graalvm-cache"
-def graalpyResourcesDir = "${layout.buildDirectory.get().asFile}/graalpy-resources"
+def graalpyResourcesDir = "${System.getProperty('java.io.tmpdir')}/graalpy-resources"
 forbiddenPatterns.enabled = false
 
 ext {

@@ -80,6 +80,7 @@ public class ExecutionUtils {
                 GraalPyResources.contextBuilder(Path.of(path))
                         .sandbox(SandboxPolicy.TRUSTED)
                         .allowHostAccess(HostAccess.ALL)
+                        .allowAllAccess(true)
                         // The following 2 options are necessary for importing 3-rd party
                         // libraries
                         // that load native libraries
