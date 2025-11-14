@@ -26,7 +26,9 @@ import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
+import org.graalvm.polyglot.io.IOAccess;
 import org.graalvm.python.embedding.GraalPyResources;
+import org.graalvm.python.embedding.VirtualFileSystem;
 import org.opensearch.common.util.concurrent.FutureUtils;
 import org.opensearch.python.phase.SemanticAnalyzer;
 import org.opensearch.script.ScriptException;
@@ -35,6 +37,7 @@ import org.opensearch.threadpool.ThreadPool;
 public class ExecutionUtils {
     private static final Logger logger = LogManager.getLogger();
     private static final String MODULE_META_SIMPLE_NAME = "module";
+    static VirtualFileSystem vfs;
     @Getter @Setter private static int TIMEOUT_IN_SECONDS = 20;
 
     private static Value executeWorker(
@@ -82,10 +85,21 @@ public class ExecutionUtils {
                         .allowHostAccess(HostAccess.ALL)
                         .allowAllAccess(true)
                         // The following 2 options are necessary for importing 3-rd party
-                        // libraries
-                        // that load native libraries
+                        // libraries that load native libraries
                         .allowExperimentalOptions(true)
+                        .allowIO(IOAccess.ALL)
+                        .allowCreateThread(true)
+                        .allowNativeAccess(true)
+                        .allowCreateProcess(true)
                         .option("python.IsolateNativeModules", "true")
+                        // This option helps to know if and when the program loads native extensions
+                        .option(
+                                "log.python.capi.level",
+                                "WARNING") // set the log level to WARNING for loggers whose names
+                        // begin with capi.level
+                        .option(
+                                "python.WarnExperimentalFeatures",
+                                "true") // log a warning every time a native extension is loaded
                         // Documentation:
                         // https://www.graalvm.org/latest/graalvm-as-a-platform/language-implementation-framework/Options
                         .option("engine.ShowInternalStackFrames", "true")
