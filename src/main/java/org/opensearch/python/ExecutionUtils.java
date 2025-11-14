@@ -38,6 +38,7 @@ public class ExecutionUtils {
     private static final Logger logger = LogManager.getLogger();
     private static final String MODULE_META_SIMPLE_NAME = "module";
     static VirtualFileSystem vfs;
+    static Context context;
     @Getter @Setter private static int TIMEOUT_IN_SECONDS = 20;
 
     private static Value executeWorker(
@@ -66,24 +67,19 @@ public class ExecutionUtils {
         SemanticAnalyzer analyzer = new SemanticAnalyzer(code + '\n');
         analyzer.checkSemantic();
         final ExecutorService executor = threadPool.executor(ThreadPool.Names.GENERIC);
-        // A working context without capabilities to import packages:
-        // Context context = Context.newBuilder("python")
-        //            .sandbox(SandboxPolicy.TRUSTED)
-        //            .allowHostAccess(HostAccess.ALL).build()
 
-        // // Reference:
-        // // https://github.com/graalvm/graal-languages-demos/blob/main/graalpy/graalpy-javase-guide/README.md
-        // String path = System.getProperty("graalpy.resources");
-        // if (path == null || path.isBlank() || path.equals("null")) {
-        //     throw new IllegalArgumentException(
-        //             "Please provide 'graalpy.resources' system property.");
-        // }
-
+        // Reference:
+        // https://github.com/graalvm/graal-languages-demos/blob/main/graalpy/graalpy-javase-guide/README.md
         if (vfs == null) {
-            vfs = VirtualFileSystem.newBuilder().allowHostIO(VirtualFileSystem.HostIO.READ_WRITE).build();
+            vfs = VirtualFileSystem.newBuilder().allowHostIO(VirtualFileSystem.HostIO.READ).resourceDirectory("GRAALPY-VFS/org.opensearch/lang-python").build();
         }
+ 
 
-        final Context context =
+        // Use GraalPyResources.contextBuilder() to auto-discover all resources:
+        // - Core Python libs from python-resources JAR (META-INF/resources)
+        // - Our venv from VFS (org.graalvm.python.vfs - default path)
+        if (context == null) {
+        context =
                 GraalPyResources.contextBuilder(vfs)
                         .sandbox(SandboxPolicy.TRUSTED)
                         .allowHostAccess(HostAccess.ALL)
@@ -95,26 +91,24 @@ public class ExecutionUtils {
                         .allowCreateThread(true)
                         .allowNativeAccess(true)
                         .allowCreateProcess(true)
-                        .option("python.IsolateNativeModules", "true")
-                        // // .option("python.PythonHome",
-                        // // "/home/ubuntu/lang-python/build/generated/graalpy/resources/GRAALPY-VFS/org.opensearch/lang-python/venv")
-                        // // .option("python.PythonHome", "/home/ubuntu/graalvm/venv")
-                        // .option("python.PythonHome", "/tmp/venv")
-                        // .option(
-                        //         "python.CoreHome",
-                        //         "/home/ubuntu/graalvm/graalpy-25.0.1-linux-amd64/lib/python3.12")
-                        // .option(
-                        //         "python.StdLibHome",
-                        //         "/home/ubuntu/graalvm/graalpy-community-25.0.1-linux-amd64/lib/python3.12") // works
+                        // .option("python.IsolateNativeModules", "true")
                         // // .option("python.CAPI",
                         // // "/home/ubuntu/.cache/org.graalvm.polyglot/python/python-home/d792e53a5a427b59aace5b7083069e17d6d05d54/lib/graalpy25.0")
-                        // .option(
-                        //         "python.CAPI",
-                        //         "/home/ubuntu/graalvm/graalpy-25.0.1-linux-amd64/lib/graalpy25.0")
-                        // This option helps to know if and when the program loads native extensions
                         .option(
-                                "log.python.capi.level",
-                                "WARNING") // set the log level to WARNING for loggers whose names
+                                "python.CAPI",
+                                "/home/ubuntu/graalvm/graalpy-community-25.0.1-linux-amd64/lib/graalpy25.0")
+                        // Can be queried with `graalpy --log.python.level=FINE -v`
+                        .option("python.CoreHome", "/home/ubuntu/graalvm/graalpy-community-25.0.1-linux-amd64/lib/graalpy25.0")
+                        .option("python.StdLibHome", "/home/ubuntu/graalvm/graalpy-community-25.0.1-linux-amd64/lib/python3.12")
+                        .option("python.Executable", "/home/ubuntu/lang-python/build/resources/main/GRAALPY-VFS/org.opensearch/lang-python/venv/bin/graalpy")
+                        .option("python.SysBasePrefix", "/home/ubuntu/lang-python/build/resources/main/GRAALPY-VFS/org.opensearch/lang-python/venv")
+                        // This option helps to know if and when the program loads native extensions
+                        // .option(
+                        //         "log.python.capi.level",
+                        //         "FINEST") // set the log level to WARNING for loggers whose names
+                        // .option(
+                        //         "log.python.level",
+                        //         "FINEST")
                         // begin with capi.level
                         .option(
                                 "python.WarnExperimentalFeatures",
@@ -124,6 +118,7 @@ public class ExecutionUtils {
                         .option("engine.ShowInternalStackFrames", "true")
                         .option("engine.PrintInternalStackTrace", "true")
                         .build();
+        }
 
         try {
             final Future<Value> futureResult =
@@ -140,19 +135,20 @@ public class ExecutionUtils {
                 FutureUtils.cancel(futureResult);
 
                 // Force close context immediately for import-related hangs
-                executor.submit(
-                        () -> {
-                            try {
-                                context.interrupt(Duration.ofSeconds(1));
-                            } catch (Exception ex) {
-                                logger.debug("Failed to interrupt context: {}", ex.getMessage());
-                            }
-                            try {
-                                context.close(true);
-                            } catch (Exception ex) {
-                                logger.debug("Failed to force close context: {}", ex.getMessage());
-                            }
-                        });
+                // executor.submit(
+                //         () -> {
+                //             try {
+                //                 context.interrupt(Duration.ofSeconds(1));
+                //             } catch (Exception ex) {
+                //                 logger.debug("Failed to interrupt context: {}", ex.getMessage());
+                //             }
+                //             try {
+                //                 context.close(true);
+                //                 context.enter();
+                //             } catch (Exception ex) {
+                //                 logger.debug("Failed to force close context: {}", ex.getMessage());
+                //             }
+                //         });
                 throw wrapWithScriptException(
                         e,
                         String.format(
@@ -171,7 +167,7 @@ public class ExecutionUtils {
         } finally {
             // Ensure context is always closed after execution completes
             try {
-                context.close(true);
+                // context.close(true);
             } catch (Exception e) {
                 logger.debug("Context already closed or error closing: {}", e.getMessage());
             }
