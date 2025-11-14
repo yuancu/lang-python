@@ -221,7 +221,7 @@ options.addStringOption('Xdoclint:all,-missing', '-quiet')
 graalPy {
 // optional: specify python packages to install. E.g. "numpy==1.24.3"
 packages = ["numpy==2.2.4"]
-resourceDirectory = "GRAALPY-VFS/${opensearch_group}/${pluginName}"
+// resourceDirectory = "GRAALPY-VFS/${opensearch_group}/${pluginName}"
 // where the plugin should place Python files for packages that the application will use
 // Should be omitted if Python packages are to be included into the Java resources
 // externalDirectory = file("${project.projectDir}/build/python-resources")

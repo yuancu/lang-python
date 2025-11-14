@@ -71,16 +71,20 @@ public class ExecutionUtils {
         //            .sandbox(SandboxPolicy.TRUSTED)
         //            .allowHostAccess(HostAccess.ALL).build()
 
-        // Reference:
-        // https://github.com/graalvm/graal-languages-demos/blob/main/graalpy/graalpy-javase-guide/README.md
-        String path = System.getProperty("graalpy.resources");
-        if (path == null || path.isBlank() || path.equals("null")) {
-            throw new IllegalArgumentException(
-                    "Please provide 'graalpy.resources' system property.");
+        // // Reference:
+        // // https://github.com/graalvm/graal-languages-demos/blob/main/graalpy/graalpy-javase-guide/README.md
+        // String path = System.getProperty("graalpy.resources");
+        // if (path == null || path.isBlank() || path.equals("null")) {
+        //     throw new IllegalArgumentException(
+        //             "Please provide 'graalpy.resources' system property.");
+        // }
+
+        if (vfs == null) {
+            vfs = VirtualFileSystem.newBuilder().allowHostIO(VirtualFileSystem.HostIO.READ_WRITE).build();
         }
 
         final Context context =
-                GraalPyResources.contextBuilder(Path.of(path))
+                GraalPyResources.contextBuilder(vfs)
                         .sandbox(SandboxPolicy.TRUSTED)
                         .allowHostAccess(HostAccess.ALL)
                         .allowAllAccess(true)
@@ -92,6 +96,21 @@ public class ExecutionUtils {
                         .allowNativeAccess(true)
                         .allowCreateProcess(true)
                         .option("python.IsolateNativeModules", "true")
+                        // // .option("python.PythonHome",
+                        // // "/home/ubuntu/lang-python/build/generated/graalpy/resources/GRAALPY-VFS/org.opensearch/lang-python/venv")
+                        // // .option("python.PythonHome", "/home/ubuntu/graalvm/venv")
+                        // .option("python.PythonHome", "/tmp/venv")
+                        // .option(
+                        //         "python.CoreHome",
+                        //         "/home/ubuntu/graalvm/graalpy-25.0.1-linux-amd64/lib/python3.12")
+                        // .option(
+                        //         "python.StdLibHome",
+                        //         "/home/ubuntu/graalvm/graalpy-community-25.0.1-linux-amd64/lib/python3.12") // works
+                        // // .option("python.CAPI",
+                        // // "/home/ubuntu/.cache/org.graalvm.polyglot/python/python-home/d792e53a5a427b59aace5b7083069e17d6d05d54/lib/graalpy25.0")
+                        // .option(
+                        //         "python.CAPI",
+                        //         "/home/ubuntu/graalvm/graalpy-25.0.1-linux-amd64/lib/graalpy25.0")
                         // This option helps to know if and when the program loads native extensions
                         .option(
                                 "log.python.capi.level",
