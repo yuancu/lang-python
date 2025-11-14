@@ -7,6 +7,7 @@ package org.opensearch.python;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -66,8 +67,17 @@ public class ExecutionUtils {
         // Context context = Context.newBuilder("python")
         //            .sandbox(SandboxPolicy.TRUSTED)
         //            .allowHostAccess(HostAccess.ALL).build()
+
+        // Reference:
+        // https://github.com/graalvm/graal-languages-demos/blob/main/graalpy/graalpy-javase-guide/README.md
+        String path = System.getProperty("graalpy.resources");
+        if (path == null || path.isBlank() || path.equals("null")) {
+            throw new IllegalArgumentException(
+                    "Please provide 'graalpy.resources' system property.");
+        }
+
         final Context context =
-                GraalPyResources.contextBuilder()
+                GraalPyResources.contextBuilder(Path.of(path))
                         .sandbox(SandboxPolicy.TRUSTED)
                         .allowHostAccess(HostAccess.ALL)
                         // The following 2 options are necessary for importing 3-rd party
