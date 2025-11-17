@@ -93,14 +93,15 @@ public class ExecutionUtils {
                 // https://www.graalvm.org/python/docs/#python-context-options
                 .option(
                         "python.Executable",
-                        String.format("%s/venv/bin/graalpy", resourcesDir.toAbsolutePath()))
+                        String.format(
+                                Locale.ROOT, "%s/venv/bin/graalpy", resourcesDir.toAbsolutePath()))
+                // Set to true to allow multiple contexts to load shared native libraries
+                .option("python.IsolateNativeModules", "true")
                 // Enable verbose warnings for debugging native extensions
                 .option("python.WarnExperimentalFeatures", "true")
                 // Show detailed stack traces for debugging
                 .option("engine.ShowInternalStackFrames", "true")
                 .option("engine.PrintInternalStackTrace", "true")
-                // Set to true to allow multiple contexts to load shared native libraries
-                .option("python.IsolateNativeModules", "false")
                 // The following two options help with debugging python execution & native extension
                 // loading:
                 // .option("log.python.capi.level", "FINE")
