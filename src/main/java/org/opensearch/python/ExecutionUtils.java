@@ -7,6 +7,7 @@ package org.opensearch.python;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -41,12 +42,11 @@ public class ExecutionUtils {
     static VirtualFileSystem vfs =
             VirtualFileSystem.newBuilder()
                     .allowHostIO(VirtualFileSystem.HostIO.READ)
-                    // .resourceDirectory("/tmp/GRAALPY-VFS/org.opensearch/lang-python")
+                    // The value is set in build.gradle
                     .resourceDirectory("GRAALPY-VFS/org.opensearch/lang-python")
                     .build();
     private static final ThreadLocal<Context> context =
             ThreadLocal.withInitial(ExecutionUtils::createContext);
-    
 
     private static Value executeWorker(
             Context context, String code, Map<String, ?> params, Map<String, ?> doc, Double score) {
@@ -66,13 +66,19 @@ public class ExecutionUtils {
     }
 
     private static Context createContext() {
-        // Use GraalPyResources.contextBuilder() to auto-discover all resources:
-        // - Core Python libs from python-resources JAR (META-INF/resources)
-        // - Our venv from VFS (org.graalvm.python.vfs - default path)
-        // NOTE: Do NOT set explicit paths for CAPI, CoreHome, StdLibHome, Executable, or
-        // SysBasePrefix
-        // as they override VFS auto-discovery and cause module import failures
-        logger.info( String.format("VFS MOUNT POINT %s", vfs.getMountPoint()));
+        // Extract VFS resources (Python packages, native extensions) to the cluster's temp
+        // directory. OpenSearch sets java.io.tmpdir to a cluster-specific location that's writable
+        // within the security manager constraints. Native libraries must be extracted to a real
+        // filesystem path to be loaded by Python's C extension loader.
+        // Reference: https://www.graalvm.org/python/docs/#virtual-filesystem
+        Path resourcesDir = Path.of(System.getProperty("java.io.tmpdir"), "graalpy-resources");
+        logger.info("Extracting GraalPy resources to: {}", resourcesDir.toAbsolutePath());
+        try {
+            GraalPyResources.extractVirtualFileSystemResources(vfs, resourcesDir);
+        } catch (Exception e) {
+            logger.error("CAN'T EXTRACT RESOURCES TO TARGET", e);
+        }
+
         return GraalPyResources.contextBuilder(vfs)
                 .sandbox(SandboxPolicy.TRUSTED)
                 .allowHostAccess(HostAccess.ALL)
@@ -83,9 +89,11 @@ public class ExecutionUtils {
                 .allowCreateThread(true)
                 .allowNativeAccess(true)
                 .allowCreateProcess(true)
-                // .option("python.Executable",
-                        //  String.format("%s/venv/bin/graalpy", vfs.getMountPoint()))
-                .option("python.Executable", "/home/ubuntu/lang-python/build/resources/main/GRAALPY-VFS/org.opensearch/lang-python/venv/bin/graalpy")
+                // Reference for Python context options:
+                // https://www.graalvm.org/python/docs/#python-context-options
+                .option(
+                        "python.Executable",
+                        String.format("%s/venv/bin/graalpy", resourcesDir.toAbsolutePath()))
                 // Enable verbose warnings for debugging native extensions
                 .option("python.WarnExperimentalFeatures", "true")
                 // Show detailed stack traces for debugging
@@ -94,11 +102,9 @@ public class ExecutionUtils {
                 // Set to true to allow multiple contexts to load shared native libraries
                 .option("python.IsolateNativeModules", "false")
                 // The following two options help with debugging python execution & native extension
-                // loading
-                // .option(
-                //         "log.python.capi.level",
-                //         "WARN") // set the log level to WARNING for loggers whose names
-                // .option("log.python.level", "WARN")
+                // loading:
+                // .option("log.python.capi.level", "FINE")
+                // .option("log.python.level", "FINE")
                 .build();
     }
 

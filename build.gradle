@@ -66,8 +66,6 @@ def pathToPlugin = 'python'
 def pluginClassName = 'PythonModulePlugin'
 def pythonLauncherLibDir = layout.buildDirectory.dir('libs')
 def appendModuleNames = "org.graalvm.polyglot,jdk.incubator.vector";
-// def graalpyResourcesDir = "${System.getProperty('java.io.tmpdir')}/GRAALPY-VFS/${opensearch_group}/${pluginName}"
-def graalpyResourcesDir = "${System.getProperty('java.io.tmpdir')}/graalpy-resources"
 forbiddenPatterns.enabled = false
 
 ext {
@@ -136,7 +134,7 @@ testDistribution = "INTEG_TEST"
 
 // This installs our plugin into the testClusters
 plugin(project.tasks.bundlePlugin.archiveFile)
-jvmArgs "--enable-native-access=ALL-UNNAMED --module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy -Dgraalpy.resources=${graalpyResourcesDir}"
+jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile}"
 }
 
 run {
@@ -197,7 +195,7 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 }
 
 testClusters.yamlRestTest {
-	jvmArgs "--enable-native-access=ALL-UNNAMED --module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy -Dgraalpy.resources=${graalpyResourcesDir}"
+	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile}"
 }
 
 // Skip filepermissions check since the generated python binaries will be executable
@@ -214,7 +212,6 @@ graalPy {
 // optional: specify python packages to install. E.g. "numpy==1.24.3"
 packages = ["numpy==2.2.4"]
 // Using VFS (Virtual Filesystem) approach - resources embedded in JAR
-// resourceDirectory = "${System.getProperty('java.io.tmpdir')}/GRAALPY-VFS/${opensearch_group}/${pluginName}"
 resourceDirectory = "GRAALPY-VFS/${opensearch_group}/${pluginName}"
 }
 }
