@@ -66,7 +66,7 @@ def pathToPlugin = 'python'
 def pluginClassName = 'PythonModulePlugin'
 def pythonLauncherLibDir = layout.buildDirectory.dir('libs')
 def appendModuleNames = "org.graalvm.polyglot,jdk.incubator.vector";
-def graalvmCacheDir = "${System.getProperty('java.io.tmpdir')}/graalvm-cache"
+// def graalpyResourcesDir = "${System.getProperty('java.io.tmpdir')}/GRAALPY-VFS/${opensearch_group}/${pluginName}"
 def graalpyResourcesDir = "${System.getProperty('java.io.tmpdir')}/graalpy-resources"
 forbiddenPatterns.enabled = false
 
@@ -184,17 +184,8 @@ java {
 	licenseHeader("/*\n" + " * Copyright OpenSearch Contributors\n" + " * SPDX-License-Identifier: Apache-2.0\n" + " */\n\n")
 }
 
-// Create GraalVM cache directories
-tasks.register('createGraalVMCacheDirs') {
-	doLast {
-		file(graalvmCacheDir).mkdirs()
-		file(graalpyResourcesDir).mkdirs()
-	}
-}
-
 // This task copies the dependencies to a 'libs' directory
 tasks.register('copyDependencies', Copy) {
-	dependsOn 'createGraalVMCacheDirs'
 	// this configuration is from plugin org.graalvm.python
 	// it is discovered by ./gradlew dependencies
 	from configurations.pythonLauncherClasspath // Collects all files, including transitive dependencies
@@ -223,6 +214,7 @@ graalPy {
 // optional: specify python packages to install. E.g. "numpy==1.24.3"
 packages = ["numpy==2.2.4"]
 // Using VFS (Virtual Filesystem) approach - resources embedded in JAR
+// resourceDirectory = "${System.getProperty('java.io.tmpdir')}/GRAALPY-VFS/${opensearch_group}/${pluginName}"
 resourceDirectory = "GRAALPY-VFS/${opensearch_group}/${pluginName}"
 }
 }
