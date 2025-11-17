@@ -65,7 +65,7 @@ def packagePath = 'org.opensearch'
 def pathToPlugin = 'python'
 def pluginClassName = 'PythonModulePlugin'
 def pythonLauncherLibDir = layout.buildDirectory.dir('libs')
-def appendModuleNames = "org.graalvm.polyglot,jdk.incubator.vector";
+def appendModuleNames = "org.graalvm.polyglot";
 forbiddenPatterns.enabled = false
 
 ext {

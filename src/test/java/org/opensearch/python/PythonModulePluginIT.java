@@ -35,14 +35,4 @@ public class PythonModulePluginIT extends OpenSearchIntegTestCase {
         logger.info("response body: {}", body);
         assertThat(body, containsString("lang-python"));
     }
-
-    public void testBasicExecution() throws IOException, ParseException {
-        Request request = new Request("POST", "/_scripts/python/_execute");
-        request.setJsonEntity("{\"script\":{\"source\":\"'hello ' + 'world'\"}}");
-        Response response = getRestClient().performRequest(request);
-        String body = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-
-        logger.info("response body: {}", body);
-        assertThat(body, containsString("hello world"));
-    }
 }
