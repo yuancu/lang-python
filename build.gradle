@@ -47,6 +47,7 @@ version = opensearch_version - "-SNAPSHOT" + ".0"
 ext {
 graalVersion = '25.0.1'
 antlr4Version = '4.13.2'
+compilerVersion = '25.0.1'
 }
 
 dependencies {
@@ -189,6 +190,31 @@ tasks.register('copyDependencies', Copy) {
 	from configurations.pythonLauncherClasspath // Collects all files, including transitive dependencies
 	into pythonLauncherLibDir // Destination directory
 }
+
+// Task to download GraalVM compiler jar
+tasks.register('downloadGraalCompiler') {
+    def compilerFile = layout.buildDirectory.file("compiler.jar").get().asFile
+
+    outputs.file(compilerFile)
+
+    doLast {
+        def compilerUrl = "https://repo1.maven.org/maven2/org/graalvm/compiler/compiler/${compilerVersion}/compiler-${compilerVersion}.jar"
+
+        if (!compilerFile.exists()) {
+            compilerFile.parentFile.mkdirs()
+            println "Downloading GraalVM compiler from: ${compilerUrl}"
+            new URL(compilerUrl).withInputStream { i ->
+                compilerFile.withOutputStream { it << i }
+            }
+            println "Downloaded compiler.jar to: ${compilerFile.absolutePath}"
+        } else {
+            println "Compiler jar already exists: ${compilerFile.absolutePath}"
+        }
+    }
+}
+
+// Make assemble depend on downloadGraalCompiler
+assemble.dependsOn downloadGraalCompiler
 
 tasks.named('yamlRestTest', RestIntegTestTask) {
 	dependsOn 'copyDependencies'
