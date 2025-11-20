@@ -96,7 +96,7 @@ public class ExecutionUtils {
                         String.format(
                                 Locale.ROOT, "%s/venv/bin/graalpy", resourcesDir.toAbsolutePath()))
                 // Set to true to allow multiple contexts to load shared native libraries
-                .option("python.IsolateNativeModules", "true")
+                .option("python.IsolateNativeModules", "false")
                 // Enable verbose warnings for debugging native extensions
                 .option("python.WarnExperimentalFeatures", "true")
                 // Show detailed stack traces for debugging
