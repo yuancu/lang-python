@@ -193,24 +193,24 @@ tasks.register('copyDependencies', Copy) {
 
 // Task to download GraalVM compiler jar
 tasks.register('downloadGraalCompiler') {
-    def compilerFile = layout.buildDirectory.file("compiler.jar").get().asFile
+	def compilerFile = layout.buildDirectory.file("compiler.jar").get().asFile
 
-    outputs.file(compilerFile)
+	outputs.file(compilerFile)
 
-    doLast {
-        def compilerUrl = "https://repo1.maven.org/maven2/org/graalvm/compiler/compiler/${compilerVersion}/compiler-${compilerVersion}.jar"
+	doLast {
+		def compilerUrl = "https://repo1.maven.org/maven2/org/graalvm/compiler/compiler/${compilerVersion}/compiler-${compilerVersion}.jar"
 
-        if (!compilerFile.exists()) {
-            compilerFile.parentFile.mkdirs()
-            println "Downloading GraalVM compiler from: ${compilerUrl}"
-            new URL(compilerUrl).withInputStream { i ->
-                compilerFile.withOutputStream { it << i }
-            }
-            println "Downloaded compiler.jar to: ${compilerFile.absolutePath}"
-        } else {
-            println "Compiler jar already exists: ${compilerFile.absolutePath}"
-        }
-    }
+		if (!compilerFile.exists()) {
+			compilerFile.parentFile.mkdirs()
+			println "Downloading GraalVM compiler from: ${compilerUrl}"
+			new URL(compilerUrl).withInputStream { i ->
+				compilerFile.withOutputStream { it << i }
+			}
+			println "Downloaded compiler.jar to: ${compilerFile.absolutePath}"
+		} else {
+			println "Compiler jar already exists: ${compilerFile.absolutePath}"
+		}
+	}
 }
 
 // Make assemble depend on downloadGraalCompiler
