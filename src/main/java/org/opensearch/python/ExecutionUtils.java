@@ -5,7 +5,10 @@
 
 package org.opensearch.python;
 
-import java.time.Duration;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -22,16 +25,28 @@ import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
+import org.graalvm.polyglot.io.IOAccess;
 import org.graalvm.python.embedding.GraalPyResources;
+import org.graalvm.python.embedding.VirtualFileSystem;
 import org.opensearch.common.util.concurrent.FutureUtils;
 import org.opensearch.python.phase.SemanticAnalyzer;
 import org.opensearch.script.ScriptException;
 import org.opensearch.threadpool.ThreadPool;
 
 public class ExecutionUtils {
+    @Getter @Setter private static int TIMEOUT_IN_SECONDS = 20;
     private static final Logger logger = LogManager.getLogger();
     private static final String MODULE_META_SIMPLE_NAME = "module";
-    @Getter @Setter private static int TIMEOUT_IN_SECONDS = 20;
+    // Reference:
+    // https://github.com/graalvm/graal-languages-demos/blob/main/graalpy/graalpy-javase-guide/README.md
+    static VirtualFileSystem vfs =
+            VirtualFileSystem.newBuilder()
+                    .allowHostIO(VirtualFileSystem.HostIO.READ)
+                    // The value is set in build.gradle
+                    .resourceDirectory("GRAALPY-VFS/org.opensearch/lang-python")
+                    .build();
+    private static final ThreadLocal<Context> context =
+            ThreadLocal.withInitial(ExecutionUtils::createContext);
 
     private static Value executeWorker(
             Context context, String code, Map<String, ?> params, Map<String, ?> doc, Double score) {
@@ -50,6 +65,58 @@ public class ExecutionUtils {
         return context.eval("python", code);
     }
 
+    private static Context createContext() {
+        // Extract VFS resources (Python packages, native extensions) to the cluster's temp
+        // directory. OpenSearch sets java.io.tmpdir to a cluster-specific location that's writable
+        // within the security manager constraints. Native libraries must be extracted to a real
+        // filesystem path to be loaded by Python's C extension loader.
+        // Reference: https://www.graalvm.org/python/docs/#virtual-filesystem
+        Path resourcesDir = Path.of(System.getProperty("java.io.tmpdir"), "graalpy-resources");
+        logger.info("Extracting GraalPy resources to: {}", resourcesDir.toAbsolutePath());
+        try {
+            GraalPyResources.extractVirtualFileSystemResources(vfs, resourcesDir);
+        } catch (Exception e) {
+            logger.error("CAN'T EXTRACT RESOURCES TO TARGET", e);
+        }
+
+        return GraalPyResources.contextBuilder(vfs)
+                .sandbox(SandboxPolicy.TRUSTED)
+                .allowHostAccess(HostAccess.ALL)
+                // The following options are necessary for importing 3-rd party
+                // libraries that load native libraries (like numpy)
+                .allowExperimentalOptions(true)
+                .allowIO(IOAccess.ALL)
+                .allowCreateThread(true)
+                .allowNativeAccess(true)
+                .allowCreateProcess(true)
+                // Reference for Python context options:
+                // https://www.graalvm.org/python/docs/#python-context-options
+                .option(
+                        "python.Executable",
+                        String.format(
+                                Locale.ROOT, "%s/venv/bin/graalpy", resourcesDir.toAbsolutePath()))
+                // Set to true to allow multiple contexts to load shared native libraries
+                .option("python.IsolateNativeModules", "false")
+                // Enable verbose warnings for debugging native extensions
+                .option("python.WarnExperimentalFeatures", "true")
+                // Show detailed stack traces for debugging
+                .option("engine.ShowInternalStackFrames", "true")
+                .option("engine.PrintInternalStackTrace", "true")
+                // The following two options help with debugging python execution & native extension
+                // loading:
+                // .option("log.python.capi.level", "FINE")
+                // .option("log.python.level", "FINE")
+                .build();
+    }
+
+    public static void cleanupThreadLocalContext() {
+        Context contextLocal = context.get();
+        if (contextLocal != null) {
+            contextLocal.close();
+            context.remove();
+        }
+    }
+
     public static Object executePython(
             ThreadPool threadPool,
             String code,
@@ -59,24 +126,10 @@ public class ExecutionUtils {
         SemanticAnalyzer analyzer = new SemanticAnalyzer(code + '\n');
         analyzer.checkSemantic();
         final ExecutorService executor = threadPool.executor(ThreadPool.Names.GENERIC);
-        // A working context without capabilities to import packages:
-        // Context context = Context.newBuilder("python")
-        //            .sandbox(SandboxPolicy.TRUSTED)
-        //            .allowHostAccess(HostAccess.ALL).build()
-        final Context context =
-                GraalPyResources.contextBuilder()
-                        .sandbox(SandboxPolicy.TRUSTED)
-                        .allowHostAccess(HostAccess.ALL)
-                        // The following 2 options are necessary for importing 3-rd party
-                        // libraries
-                        // that load native libraries
-                        .allowExperimentalOptions(true)
-                        .option("python.IsolateNativeModules", "true")
-                        .build();
 
         try {
             final Future<Value> futureResult =
-                    executor.submit(() -> executeWorker(context, code, params, doc, score));
+                    executor.submit(() -> executeWorker(context.get(), code, params, doc, score));
 
             try {
                 Value result = futureResult.get(TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
@@ -87,58 +140,41 @@ public class ExecutionUtils {
             } catch (TimeoutException e) {
                 // future.cancel is a forbidden API
                 FutureUtils.cancel(futureResult);
-
-                // Force close context immediately for import-related hangs
-                executor.submit(
-                        () -> {
-                            try {
-                                context.interrupt(Duration.ofSeconds(1));
-                            } catch (Exception ex) {
-                                logger.debug("Failed to interrupt context: {}", ex.getMessage());
-                            }
-                            try {
-                                context.close(true);
-                            } catch (Exception ex) {
-                                logger.debug("Failed to force close context: {}", ex.getMessage());
-                            }
-                        });
-
-                throw new ScriptException(
+                throw wrapWithScriptException(
+                        e,
                         String.format(
                                 Locale.ROOT,
                                 "Script execution timed out after %d seconds",
                                 TIMEOUT_IN_SECONDS),
-                        e,
-                        List.of(),
-                        code,
-                        "python");
+                        code);
             } catch (ExecutionException | InterruptedException e) {
-                throw new ScriptException(
-                        String.format(
-                                Locale.ROOT,
-                                "Script execution failed with error: %s",
-                                e.getMessage()),
-                        e,
-                        List.of(),
-                        code,
-                        "python");
+                throw wrapWithScriptException(e, code);
             }
+        } catch (ScriptException e) {
+            // Throw script exception as is
+            throw e;
         } catch (Exception e) {
-            throw new ScriptException(
-                    String.format(
-                            Locale.ROOT, "Script execution failed with error: %s", e.getMessage()),
-                    e,
-                    List.of(),
-                    code,
-                    "python");
-        } finally {
-            // Ensure context is always closed after execution completes
-            try {
-                context.close(true);
-            } catch (Exception e) {
-                logger.debug("Context already closed or error closing: {}", e.getMessage());
-            }
+            throw wrapWithScriptException(e, code);
         }
+    }
+
+    private static ScriptException wrapWithScriptException(Exception e, String code) {
+        return wrapWithScriptException(e, "Script execution failed with error", code);
+    }
+
+    private static ScriptException wrapWithScriptException(
+            Exception e, String errorFmt, String code) {
+        List<String> stacktrace;
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        e.printStackTrace(pw);
+        stacktrace = Arrays.stream(sw.toString().split("\\n")).map(String::trim).toList();
+        return new ScriptException(
+                String.format(Locale.ROOT, errorFmt, e.getMessage()),
+                e,
+                stacktrace,
+                code,
+                "python");
     }
 
     private static Object extractValueBeforeContextClose(Value result) {

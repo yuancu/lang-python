@@ -29,7 +29,7 @@ plugins {
 id 'java'
 id 'idea'
 id 'eclipse'
-id 'org.graalvm.buildtools.native' version '0.11.2'
+id 'org.graalvm.buildtools.native' version '0.11.3'
 id 'org.graalvm.python' version '25.0.1'
 id 'com.diffplug.spotless' version '7.0.3'
 }
@@ -50,8 +50,10 @@ antlr4Version = '4.13.2'
 }
 
 dependencies {
+// org.graalvm.python:python and org.graalvm.python:python-embedding are injected automatically by plugin org.graalvm.python.
+// See https://www.graalvm.org/python/docs/#gradle-plugin-configuration
 implementation "org.graalvm.polyglot:polyglot:$graalVersion"
-implementation "org.graalvm.polyglot:python-community:$graalVersion"
+implementation "org.graalvm.python:python-resources:$graalVersion" // Core Python stdlib and resources
 implementation "org.graalvm.sdk:graal-sdk:$graalVersion"
 implementation "org.antlr:antlr4-runtime:$antlr4Version"
 implementation 'org.projectlombok:lombok:1.18.38'
@@ -63,7 +65,8 @@ def packagePath = 'org.opensearch'
 def pathToPlugin = 'python'
 def pluginClassName = 'PythonModulePlugin'
 def pythonLauncherLibDir = layout.buildDirectory.dir('libs')
-def appendModuleNames = "org.graalvm.polyglot,jdk.incubator.vector";
+def appendModuleNames = "org.graalvm.polyglot";
+forbiddenPatterns.enabled = false
 
 ext {
 // Do not fail on `javadoc` warning (ANTLR generated code)
@@ -131,7 +134,7 @@ testDistribution = "INTEG_TEST"
 
 // This installs our plugin into the testClusters
 plugin(project.tasks.bundlePlugin.archiveFile)
-jvmArgs "--enable-native-access=ALL-UNNAMED --module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
+jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile}"
 }
 
 run {
@@ -157,11 +160,6 @@ tasks.named('thirdPartyAudit') {
 enabled = false
 }
 
-graalPy {
-// optional: specify python packages to install. E.g. "numpy==1.24.3"
-packages = []
-}
-
 spotless {
 format 'misc', {
 	// define the files to apply `misc` to
@@ -178,7 +176,7 @@ java {
 	trimTrailingWhitespace()
 	endWithNewline()
 	// apply a specific flavor of google-java-format
-	googleJavaFormat('1.17.0').aosp().reflowLongStrings().skipJavadocFormatting()
+	googleJavaFormat('1.32.0').aosp().reflowLongStrings().skipJavadocFormatting()
 	// fix formatting of type annotations
 	formatAnnotations()
 	licenseHeader("/*\n" + " * Copyright OpenSearch Contributors\n" + " * SPDX-License-Identifier: Apache-2.0\n" + " */\n\n")
@@ -197,7 +195,7 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 }
 
 testClusters.yamlRestTest {
-	jvmArgs "--enable-native-access=ALL-UNNAMED --module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djava.security.policy=${project.rootDir}/all.policy"
+	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile}"
 }
 
 // Skip filepermissions check since the generated python binaries will be executable
@@ -210,9 +208,10 @@ tasks.named('javadoc') {
 options.addStringOption('Xdoclint:all,-missing', '-quiet')
 }
 
-tasks.named("forbiddenPatterns").configure {
-	exclude '**/*.pyc'
-	exclude '**/*.exe'
-	exclude '**/build/**'
+graalPy {
+// optional: specify python packages to install. E.g. "numpy==1.24.3"
+packages = ["numpy==2.2.4"]
+// Using VFS (Virtual Filesystem) approach - resources embedded in JAR
+resourceDirectory = "GRAALPY-VFS/${opensearch_group}/${pluginName}"
 }
 }
