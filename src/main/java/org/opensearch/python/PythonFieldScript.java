@@ -6,49 +6,52 @@
 package org.opensearch.python;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.LeafReaderContext;
-import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.SandboxPolicy;
-import org.graalvm.polyglot.Value;
 import org.opensearch.script.FieldScript;
+import org.opensearch.script.ScriptFactory;
 import org.opensearch.search.lookup.SearchLookup;
 import org.opensearch.threadpool.ThreadPool;
 
-// Under development: this context has not been enabled yet.
 public class PythonFieldScript {
     private static final Logger logger = LogManager.getLogger();
 
-    public static FieldScript.Factory newFieldScriptFactory(String code, ThreadPool threadPool) {
-        return new FieldScript.Factory() {
-            @Override
-            public boolean isResultDeterministic() {
-                return true;
-            }
-
-            @Override
-            public FieldScript.LeafFactory newFactory(
-                    Map<String, Object> params, SearchLookup lookup) {
-                return newFieldScript(code, params, lookup, threadPool);
-            }
-        };
+    public static FieldScriptFactory newFieldScriptFactory(String code, ThreadPool threadPool) {
+        return new FieldScriptFactory(code, threadPool);
     }
 
-    private static FieldScript.LeafFactory newFieldScript(
-            String code, Map<String, Object> params, SearchLookup lookup, ThreadPool threadPool) {
-        logger.debug("Executing python code: {}\nParams: {}\nLookup: {}", code, params, lookup);
-        return new PythonFieldScriptLeafFactory(code, params, lookup, threadPool);
-    }
-
-    private static class PythonFieldScriptLeafFactory implements FieldScript.LeafFactory {
+    public static class FieldScriptFactory implements FieldScript.Factory, ScriptFactory {
         private final String code;
-        private Map<String, Object> params;
-        private SearchLookup lookup;
-        private ThreadPool threadPool;
+        private final ThreadPool threadPool;
 
-        private PythonFieldScriptLeafFactory(
+        FieldScriptFactory(String code, ThreadPool threadPool) {
+            this.code = code;
+            this.threadPool = threadPool;
+        }
+
+        @Override
+        public boolean isResultDeterministic() {
+            return true;
+        }
+
+        @Override
+        public FieldScript.LeafFactory newFactory(Map<String, Object> params, SearchLookup lookup) {
+            return new FieldScriptLeafFactory(code, params, lookup, threadPool);
+        }
+    }
+
+    private static class FieldScriptLeafFactory implements FieldScript.LeafFactory {
+        private final String code;
+        private final Map<String, Object> params;
+        private final SearchLookup lookup;
+        private final ThreadPool threadPool;
+        private final Set<String> accessedDocFields;
+
+        FieldScriptLeafFactory(
                 String code,
                 Map<String, Object> params,
                 SearchLookup lookup,
@@ -56,6 +59,8 @@ public class PythonFieldScript {
             this.code = code;
             this.params = params;
             this.lookup = lookup;
+            this.threadPool = threadPool;
+            this.accessedDocFields = PythonScriptUtility.extractAccessedDocFields(code);
         }
 
         @Override
@@ -63,28 +68,34 @@ public class PythonFieldScript {
             return new FieldScript(params, lookup, ctx) {
                 @Override
                 public Object execute() {
-                    ExecutionUtils.executePython(threadPool, code, params, Map.of(), 0.0d);
-                    return 0.0d;
+                    logger.debug(
+                            "Executing python field script code: {}\nParams: {}", code, params);
+
+                    Map<String, Object> docParams = new HashMap<>();
+
+                    for (String field : accessedDocFields) {
+                        try {
+                            Object value = getDoc().get(field);
+                            docParams.put(field, value);
+                        } catch (Exception e) {
+                            logger.warn("Failed to get field '{}': {}", field, e.getMessage());
+                            docParams.put(field, null);
+                        }
+                    }
+
+                    return executePython(threadPool, code, params, docParams);
                 }
             };
         }
-    }
 
-    private static Void runPython(String code) {
-        try (Context context =
-                Context.newBuilder("python")
-                        .sandbox(SandboxPolicy.TRUSTED)
-                        .allowAllAccess(false)
-                        .build()) {
-
-            // TODO: check whether code has a field `result`
-            context.eval("python", code);
-            Value result = context.getBindings("python").getMember("result");
-
-            logger.info("Result {}", result.asInt());
-        } catch (Exception e) {
-            logger.error("Failed to run python code", e);
+        private static Object executePython(
+                ThreadPool threadPool, String code, Map<String, ?> params, Map<String, ?> doc) {
+            Object result = ExecutionUtils.executePython(threadPool, code, params, doc, null);
+            if (result == null) {
+                logger.debug("Did not get any result from Python field script execution");
+                return null;
+            }
+            return result;
         }
-        return null;
     }
 }
