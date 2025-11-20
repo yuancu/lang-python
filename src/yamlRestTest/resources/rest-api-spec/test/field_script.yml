@@ -1,0 +1,46 @@
+"Test python field script with string concatenation":
+  - do:
+      indices.create:
+        index: test_index
+        body:
+          mappings:
+            properties:
+              first_name:
+                type: text
+                fields:
+                  keyword:
+                    type: keyword
+              last_name:
+                type: text
+                fields:
+                  keyword:
+                    type: keyword
+
+  - do:
+      bulk:
+        body:
+          - index:
+              _index: test_index
+              _id: "1"
+          - first_name: "Jane"
+            last_name: "Doe"
+
+  - do:
+      indices.refresh:
+        index: test_index
+
+  - do:
+      search:
+        index: test_index
+        body:
+          script_fields:
+            full_name:
+              script:
+                lang: python
+                source: 'doc["first_name.keyword"][0] + " " + doc["last_name.keyword"][0]'
+
+  - match: { hits.hits.0.fields.full_name.0: "Jane Doe" }
+
+  - do:
+      indices.delete:
+        index: test_index
