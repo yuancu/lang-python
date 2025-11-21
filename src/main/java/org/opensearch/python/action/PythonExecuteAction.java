@@ -10,7 +10,6 @@ import static org.opensearch.rest.RestRequest.Method.GET;
 import static org.opensearch.rest.RestRequest.Method.POST;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -78,7 +77,7 @@ public class PythonExecuteAction extends ActionType<PythonExecuteAction.Response
         Request(Script script) {
             Objects.requireNonNull(script);
             if (!Objects.equals(script.getLang(), "python")) {
-                logger.warn(
+                logger.debug(
                         "Got a script with language [{}] in a PythonExecuteAction request, ignoring"
                                 + " it and setting it to python...",
                         script.getLang());
@@ -210,7 +209,7 @@ public class PythonExecuteAction extends ActionType<PythonExecuteAction.Response
             // Execute the script using the Python script engine
             TemplateScript.Factory factory =
                     scriptService.compile(request.script, TemplateScript.CONTEXT);
-            TemplateScript templateScript = factory.newInstance(Collections.emptyMap());
+            TemplateScript templateScript = factory.newInstance(request.script.getParams());
             String result = templateScript.execute();
             return new Response(result);
         }

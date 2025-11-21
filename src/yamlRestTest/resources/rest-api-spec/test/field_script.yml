@@ -1,4 +1,4 @@
-"Test python field script with string concatenation":
+setup:
   - do:
       indices.create:
         index: test_index
@@ -29,6 +29,8 @@
       indices.refresh:
         index: test_index
 
+---
+"Test python field script with string concatenation":
   - do:
       search:
         index: test_index
@@ -41,6 +43,17 @@
 
   - match: { hits.hits.0.fields.full_name.0: "Jane Doe" }
 
+---
+"Test field script accessing _source":
+
   - do:
-      indices.delete:
+      search:
         index: test_index
+        body:
+          script_fields:
+            full_name:
+              script:
+                lang: python
+                source: "params['_source']['first_name'] + ' ' + doc['last_name.keyword'].getValue()"
+
+  - match: { hits.hits.0.fields.full_name.0: "Jane Doe" }
