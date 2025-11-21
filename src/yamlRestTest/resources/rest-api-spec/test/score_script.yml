@@ -79,3 +79,30 @@ setup:
   # Imitate approximate match for floating point
   - gte: { hits.hits.2._score: 5.3 }
   - lte: { hits.hits.2._score: 5.4 }
+
+---
+"Test python score scripts accessing _source fields":
+  - skip:
+      features: close_to
+  - do:
+      search:
+        index: books
+        body:
+          query:
+            function_score:
+              query:
+                match_all: {}
+              script_score:
+                script:
+                  lang: python
+                  source: "len(params['_source']['name']) * params['multiplier']"
+                  params:
+                    multiplier: 0.5
+  # Scoring by half of the name length
+  - match: { hits.total.value: 3 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.0._score: 8.5 }
+  - match: { hits.hits.1._id: "3" }
+  - match: { hits.hits.1._score: 5.5 }
+  - match: { hits.hits.2._id: "2" }
+  - match: { hits.hits.2._score: 2.5 }

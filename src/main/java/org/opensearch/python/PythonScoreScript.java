@@ -43,25 +43,13 @@ public class PythonScoreScript {
         return new PythonScoreScriptLeafFactory(code, params, lookup, indexSearcher, threadPool);
     }
 
-    private static class PythonScoreScriptLeafFactory implements ScoreScript.LeafFactory {
-        private final String code;
-        private final Map<String, Object> params;
-        private final SearchLookup lookup;
-        private final IndexSearcher indexSearcher;
-        private final ThreadPool threadPool;
-
-        private PythonScoreScriptLeafFactory(
-                String code,
-                Map<String, Object> params,
-                SearchLookup lookup,
-                IndexSearcher indexSearcher,
-                ThreadPool threadPool) {
-            this.code = code;
-            this.params = params;
-            this.lookup = lookup;
-            this.indexSearcher = indexSearcher;
-            this.threadPool = threadPool;
-        }
+    private record PythonScoreScriptLeafFactory(
+            String code,
+            Map<String, Object> params,
+            SearchLookup lookup,
+            IndexSearcher indexSearcher,
+            ThreadPool threadPool)
+            implements ScoreScript.LeafFactory {
 
         @Override
         public boolean needs_score() {
@@ -78,7 +66,7 @@ public class PythonScoreScript {
                                 "Use user-provided Python expression to calculate the score of the"
                                         + " document");
                     }
-                    return executePython(threadPool, code, params, getDoc(), get_score());
+                    return executePython(threadPool, code, getParams(), getDoc(), get_score());
                 }
             };
         }
