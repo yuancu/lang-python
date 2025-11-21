@@ -6,7 +6,6 @@
 package org.opensearch.python;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.logging.log4j.LogManager;
@@ -70,20 +69,7 @@ public class PythonFieldScript {
                 public Object execute() {
                     logger.debug(
                             "Executing python field script code: {}\nParams: {}", code, params);
-
-                    Map<String, Object> docParams = new HashMap<>();
-
-                    for (String field : accessedDocFields) {
-                        try {
-                            Object value = getDoc().get(field);
-                            docParams.put(field, value);
-                        } catch (Exception e) {
-                            logger.warn("Failed to get field '{}': {}", field, e.getMessage());
-                            docParams.put(field, null);
-                        }
-                    }
-
-                    return executePython(threadPool, code, params, docParams);
+                    return executePython(threadPool, code, getParams(), getDoc());
                 }
             };
         }

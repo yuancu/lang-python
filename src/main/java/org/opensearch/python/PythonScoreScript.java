@@ -6,9 +6,7 @@
 package org.opensearch.python;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.LeafReaderContext;
@@ -80,24 +78,7 @@ public class PythonScoreScript {
                                 "Use user-provided Python expression to calculate the score of the"
                                         + " document");
                     }
-
-                    logger.info(
-                            "Code is expression: {}", PythonScriptUtility.isCodeAnExpression(code));
-                    //                    if (!PythonScriptUtility.isCodeAnExpression(code)) {
-                    //                        //TODO: Convert to ScriptException @see
-                    // ExpressionScriptEngine.java#L444
-                    //                        throw new GeneralScriptException("Python score script
-                    // must be an expression, but got " + code);
-                    //                    }
-
-                    Set<String> accessedDocFields =
-                            PythonScriptUtility.extractAccessedDocFields(code);
-                    Map<String, Object> docParams = new HashMap<>();
-                    for (String field : accessedDocFields) {
-                        docParams.put(field, getDoc().get(field));
-                    }
-
-                    return executePython(threadPool, code, params, docParams, get_score());
+                    return executePython(threadPool, code, params, getDoc(), get_score());
                 }
             };
         }
