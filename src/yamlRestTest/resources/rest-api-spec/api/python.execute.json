@@ -11,7 +11,7 @@
     },
     "params": {},
     "body": {
-      "description": "PPL Query",
+      "description": "An interface to execute simple Python scripts",
       "required":true
     }
   }
