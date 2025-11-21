@@ -47,6 +47,7 @@ version = opensearch_version - "-SNAPSHOT" + ".0"
 ext {
 graalVersion = '25.0.1'
 antlr4Version = '4.13.2'
+compilerVersion = '25.0.1'
 }
 
 dependencies {
@@ -122,7 +123,7 @@ tasks.named("check").configure { dependsOn("integTest") }
 tasks.named("publishNebulaPublicationToMavenLocal").configure { dependsOn "generatePomFileForPluginZipPublication" }
 
 integTest {
-dependsOn 'copyDependencies'
+dependsOn 'copyDependencies', 'downloadGraalCompiler'
 // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
 if (System.getProperty("test.debug") != null) {
 	jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
@@ -134,7 +135,7 @@ testDistribution = "INTEG_TEST"
 
 // This installs our plugin into the testClusters
 plugin(project.tasks.bundlePlugin.archiveFile)
-jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile}"
+jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI --upgrade-module-path=${layout.buildDirectory.file("compiler.jar").get().asFile} --enable-native-access=org.graalvm.truffle,ALL-UNNAMED -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile}"
 }
 
 run {
@@ -190,12 +191,37 @@ tasks.register('copyDependencies', Copy) {
 	into pythonLauncherLibDir // Destination directory
 }
 
+// Task to download GraalVM compiler jar
+tasks.register('downloadGraalCompiler') {
+	def compilerFile = layout.buildDirectory.file("compiler.jar").get().asFile
+
+	outputs.file(compilerFile)
+
+	doLast {
+		def compilerUrl = "https://repo1.maven.org/maven2/org/graalvm/compiler/compiler/${compilerVersion}/compiler-${compilerVersion}.jar"
+
+		if (!compilerFile.exists()) {
+			compilerFile.parentFile.mkdirs()
+			println "Downloading GraalVM compiler from: ${compilerUrl}"
+			new URL(compilerUrl).withInputStream { i ->
+				compilerFile.withOutputStream { it << i }
+			}
+			println "Downloaded compiler.jar to: ${compilerFile.absolutePath}"
+		} else {
+			println "Compiler jar already exists: ${compilerFile.absolutePath}"
+		}
+	}
+}
+
+// Make assemble depend on downloadGraalCompiler
+assemble.dependsOn downloadGraalCompiler
+
 tasks.named('yamlRestTest', RestIntegTestTask) {
-	dependsOn 'copyDependencies'
+	dependsOn 'copyDependencies', 'downloadGraalCompiler'
 }
 
 testClusters.yamlRestTest {
-	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile}"
+	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI --upgrade-module-path=${layout.buildDirectory.file("compiler.jar").get().asFile} --enable-native-access=org.graalvm.truffle,ALL-UNNAMED -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile}"
 }
 
 // Skip filepermissions check since the generated python binaries will be executable

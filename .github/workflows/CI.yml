@@ -14,8 +14,8 @@ jobs:
           - ubuntu-latest
           - macOS-latest
         java:
-          - 21
           - 23
+          - 25
     name: Plugin lang-python
     runs-on: ${{ matrix.os }}
 
