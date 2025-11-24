@@ -1,0 +1,108 @@
+setup:
+  - do:
+      indices.create:
+        index: books
+        body:
+          mappings:
+            properties:
+              name:
+                type: text
+                fields:
+                  keyword:
+                    type: keyword
+              ratings:
+                type: integer
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - create:
+              _index: books
+              _id: "1"
+          - name: "Beneath the Wheel"
+            ratings: [4, 3, 5]
+          - create:
+              _index: books
+              _id: "2"
+          - name: "Faust"
+            ratings: [5, 5, 5]
+          - create:
+              _index: books
+              _id: "3"
+          - name: "The Odyssey"
+            ratings: [2, 1, 5]
+
+  - do:
+      indices.refresh:
+        index: books
+
+---
+"Test python score script with average ratings and params":
+  - skip:
+      features: close_to
+  - do:
+      put_script:
+        id: agg_ratings
+        body:
+          script:
+            lang: python
+            source: "sum(doc['ratings']) / len(doc['ratings']) * params['multiplier']"
+
+  - do:
+      search:
+        index: books
+        body:
+          query:
+            function_score:
+              script_score:
+                script:
+                  id: agg_ratings
+                  params:
+                    multiplier: 2.0
+
+  - match: { hits.total.value: 3 }
+
+  # Verify scores are calculated correctly:
+  # Book 1 "Beneath the Wheel": ratings [4,3,5], avg = 4.0, score = 4.0 * 2.0 = 8.0
+  # Book 2 "Faust": ratings [5,5,5], avg = 5.0, score = 5.0 * 2.0 = 10.0
+  # Book 3 "The Odyssey": ratings [2,1,5], avg = 2.67, score = 2.67 * 2.0 = 5.33
+
+  # Results should be ordered by score (highest first)
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.0._score: 10.0 }
+
+  - match: { hits.hits.1._id: "1" }
+  - match: { hits.hits.1._score: 8.0 }
+
+  - match: { hits.hits.2._id: "3" }
+  # Imitate approximate match for floating point
+  - gte: { hits.hits.2._score: 5.3 }
+  - lte: { hits.hits.2._score: 5.4 }
+
+---
+"Test python score scripts accessing _source fields":
+  - skip:
+      features: close_to
+  - do:
+      search:
+        index: books
+        body:
+          query:
+            function_score:
+              query:
+                match_all: {}
+              script_score:
+                script:
+                  lang: python
+                  source: "len(params['_source']['name']) * params['multiplier']"
+                  params:
+                    multiplier: 0.5
+  # Scoring by half of the name length
+  - match: { hits.total.value: 3 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.0._score: 8.5 }
+  - match: { hits.hits.1._id: "3" }
+  - match: { hits.hits.1._score: 5.5 }
+  - match: { hits.hits.2._id: "2" }
+  - match: { hits.hits.2._score: 2.5 }

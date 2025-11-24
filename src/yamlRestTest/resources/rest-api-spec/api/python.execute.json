@@ -11,7 +11,7 @@
     },
     "params": {},
     "body": {
-      "description": "PPL Query",
+      "description": "Python scripts wrapped under scrips.source",
       "required":true
     }
   }
