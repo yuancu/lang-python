@@ -78,7 +78,7 @@ public class PythonScoreScript {
                 Map<String, ?> doc,
                 double score) {
             Object evaluatedVal =
-                    ExecutionUtils.executePython(threadPool, code, params, doc, score);
+                    ExecutionUtils.executePython(threadPool, code, params, doc, null, score);
             if (evaluatedVal == null) {
                 return 0;
             }

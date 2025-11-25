@@ -86,7 +86,8 @@ public class PythonModulePlugin extends Plugin implements ScriptPlugin, ActionPl
                     try {
                         logger.info("Starting Python engine warmup...");
                         long startTime = System.currentTimeMillis();
-                        ExecutionUtils.executePythonAsString(threadPool, "1+1", null, null, null);
+                        ExecutionUtils.executePythonAsString(
+                                threadPool, "1+1", null, null, null, null);
                         long duration = System.currentTimeMillis() - startTime;
                         logger.info("Python engine warmed up successfully in {}ms", duration);
                     } catch (Exception e) {

@@ -29,7 +29,8 @@ public class PythonScriptEngine implements ScriptEngine {
                 Map.of(
                         FieldScript.CONTEXT, PythonFieldScript::newFieldScriptFactory,
                         ScoreScript.CONTEXT, PythonScoreScript::newScoreScriptFactory,
-                        TemplateScript.CONTEXT, PythonTemplateScript::newTemplateScriptFactory);
+                        TemplateScript.CONTEXT, PythonTemplateScript::newTemplateScriptFactory,
+                        IngestScript.CONTEXT, PythonIngestScript::newIngestScriptFactory);
     }
 
     @Override

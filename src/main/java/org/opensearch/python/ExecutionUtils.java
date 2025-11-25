@@ -49,17 +49,22 @@ public class ExecutionUtils {
             ThreadLocal.withInitial(ExecutionUtils::createContext);
 
     private static Value executeWorker(
-            Context context, String code, Map<String, ?> params, Map<String, ?> doc, Double score) {
+            Context context,
+            String code,
+            Map<String, ?> params,
+            Map<String, ?> doc,
+            Map<String, ?> ctx,
+            Double score) {
         if (params != null) {
-            logger.debug("Params: {}", params.toString());
             context.getBindings("python").putMember("params", params);
         }
         if (doc != null) {
-            logger.debug("Doc: {}", doc.toString());
             context.getBindings("python").putMember("doc", doc);
         }
+        if (ctx != null) {
+            context.getBindings("python").putMember("ctx", ctx);
+        }
         if (score != null) {
-            logger.debug("Score: {}", score);
             context.getBindings("python").putMember("_score", score);
         }
         return context.eval("python", code);
@@ -122,6 +127,7 @@ public class ExecutionUtils {
             String code,
             Map<String, ?> params,
             Map<String, ?> doc,
+            Map<String, ?> ctx,
             Double score) {
         SemanticAnalyzer analyzer = new SemanticAnalyzer(code + '\n');
         analyzer.checkSemantic();
@@ -129,7 +135,8 @@ public class ExecutionUtils {
 
         try {
             final Future<Value> futureResult =
-                    executor.submit(() -> executeWorker(context.get(), code, params, doc, score));
+                    executor.submit(
+                            () -> executeWorker(context.get(), code, params, doc, ctx, score));
 
             try {
                 Value result = futureResult.get(TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
@@ -210,8 +217,9 @@ public class ExecutionUtils {
             String code,
             Map<String, ?> params,
             Map<String, ?> doc,
+            Map<String, ?> ctx,
             Double score) {
-        Object result = executePython(threadPool, code, params, doc, score);
+        Object result = executePython(threadPool, code, params, doc, ctx, score);
         if (result == null) {
             logger.debug("Did not get any result from Python execution");
             return "";
