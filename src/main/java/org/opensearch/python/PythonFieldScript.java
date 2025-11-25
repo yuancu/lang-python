@@ -11,7 +11,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.LeafReaderContext;
 import org.opensearch.script.FieldScript;
-import org.opensearch.script.ScriptFactory;
 import org.opensearch.search.lookup.SearchLookup;
 import org.opensearch.threadpool.ThreadPool;
 
@@ -22,7 +21,7 @@ public class PythonFieldScript {
         return new FieldScriptFactory(code, threadPool);
     }
 
-    public static class FieldScriptFactory implements FieldScript.Factory, ScriptFactory {
+    public static class FieldScriptFactory implements FieldScript.Factory {
         private final String code;
         private final ThreadPool threadPool;
 
@@ -60,7 +59,7 @@ public class PythonFieldScript {
 
         private static Object executePython(
                 ThreadPool threadPool, String code, Map<String, ?> params, Map<String, ?> doc) {
-            Object result = ExecutionUtils.executePython(threadPool, code, params, doc, null);
+            Object result = ExecutionUtils.executePython(threadPool, code, params, doc, null, null);
             if (result == null) {
                 logger.debug("Did not get any result from Python field script execution");
                 return null;
