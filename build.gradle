@@ -31,7 +31,7 @@ id 'idea'
 id 'eclipse'
 id 'org.graalvm.buildtools.native' version '0.11.3'
 id 'org.graalvm.python' version '25.0.1'
-id 'com.diffplug.spotless' version '7.0.3'
+id 'com.diffplug.spotless' version '8.1.0'
 }
 
 apply plugin: 'opensearch.yaml-rest-test'
@@ -57,7 +57,7 @@ implementation "org.graalvm.polyglot:polyglot:$graalVersion"
 implementation "org.graalvm.python:python-resources:$graalVersion" // Core Python stdlib and resources
 implementation "org.graalvm.sdk:graal-sdk:$graalVersion"
 implementation "org.antlr:antlr4-runtime:$antlr4Version"
-implementation 'org.projectlombok:lombok:1.18.38'
+implementation 'org.projectlombok:lombok:1.18.42'
 }
 
 def pluginName = 'lang-python'
