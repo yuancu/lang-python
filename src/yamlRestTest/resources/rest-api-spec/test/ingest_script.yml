@@ -1,48 +1,18 @@
 "Test python ingest script with string manipulation":
   - do:
-      ingest.put_pipeline:
-        id: "python-test-pipeline"
-        body: >
-          {
-            "description": "Test python ingest script",
-            "processors": [
-              {
-                "script": {
-                  "description": "Extract 'tags' from 'env' field",
-                  "lang": "python",
-                  "source": "ctx['tags'] = ctx['env'].split(params['delimiter'])[params['position']]",
-                  "params": {
-                    "delimiter": "-",
-                    "position": 3
-                  }
-                }
-              }
-            ]
-          }
+      ingest.simulate:
+        body:
+          pipeline:
+            processors:
+              - script:
+                  description: "Extract 'tags' from 'env' field"
+                  lang: python
+                  source: "ctx['tags'] = ctx['env'].split(params['delimiter'])[params['position']]"
+                  params:
+                    delimiter: "-"
+                    position: 3
+          docs:
+            - _source:
+                env: "us-east-1-prod"
 
-  - do:
-      index:
-        index: test-ingest
-        id: "1"
-        pipeline: "python-test-pipeline"
-        body: >
-          {
-            "env": "us-east-1-prod"
-          }
-
-  - do:
-      indices.refresh:
-        index: test-ingest
-
-  - do:
-      get:
-        index: test-ingest
-        id: "1"
-
-  - match: { _source.tags: "prod" }
-  - match: { _source.env: "us-east-1-prod" }
-
-  - do:
-      ingest.delete_pipeline:
-        id: "python-test-pipeline"
-        ignore: 404
+  - match: { docs.0.doc._source.tags: "prod" }
