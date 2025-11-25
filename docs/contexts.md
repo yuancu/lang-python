@@ -12,8 +12,10 @@ Field scripts calculate custom field values for each document in search results.
 
 **Variables**
 
-- `params: dict[str, Any]`: User-provided parameters from the query. The document source is also available via `params['_source']`.
-- `doc: dict[str, Any]`: Document fields. Access values using `doc['field_name'][index]` or `doc['field_name'].getValue()`.
+- `params: dict[str, Any]`: User-provided parameters from the query. The document source is also available via
+  `params['_source']`.
+- `doc: dict[str, Any]`: Document fields. Access values using `doc['field_name'][index]` or
+  `doc['field_name'].getValue()`.
 
 **Returns**
 
@@ -28,9 +30,36 @@ GET /test_index/_search
     "full_name": {
       "script": {
         "lang": "python",
-        "source": "doc['first_name.keyword'][0] + ' ' + doc['last_name.keyword'][0]"
+        "source": "doc['first_name.keyword'].getValue() + ' ' + doc['last_name.keyword'].getValue()"
       }
     }
+  }
+}
+```
+
+Response (simplified):
+
+```json
+{
+  "hits": {
+    "hits": [
+      {
+        "_id": "1",
+        "fields": {
+          "full_name": [
+            "Jane Doe"
+          ]
+        }
+      },
+      {
+        "_id": "2",
+        "fields": {
+          "full_name": [
+            "John Smith"
+          ]
+        }
+      }
+    ]
   }
 }
 ```
@@ -48,7 +77,8 @@ Score scripts calculate custom relevance scores for documents in search results.
 **Variables**
 
 - `params: dict[str, Any]`: User-provided parameters from the query.
-- `doc: dict[str, Any]`: Fields from the document, which can be accessed with `doc['field_name'].getValue()` or `doc['field_name'][index]`.
+- `doc: dict[str, Any]`: Fields from the document, which can be accessed with `doc['field_name'].getValue()` or
+  `doc['field_name'][index]`.
 - `_score: float`: The relevance score of the document.
 
 **Returns**
@@ -72,6 +102,51 @@ GET /books/_search
         }
       }
     }
+  }
+}
+```
+
+Response (simplified):
+
+```json
+{
+  "hits": {
+    "max_score": 10,
+    "hits": [
+      {
+        "_id": "2",
+        "_score": 10,
+        "_source": {
+          "ratings": [
+            5,
+            5,
+            5
+          ]
+        }
+      },
+      {
+        "_id": "1",
+        "_score": 8,
+        "_source": {
+          "ratings": [
+            4,
+            3,
+            5
+          ]
+        }
+      },
+      {
+        "_id": "3",
+        "_score": 5.3333335,
+        "_source": {
+          "ratings": [
+            2,
+            1,
+            5
+          ]
+        }
+      }
+    ]
   }
 }
 ```
@@ -115,6 +190,28 @@ POST _ingest/pipeline/_simulate
     {
       "_source": {
         "env": "us-east-1-prod"
+      }
+    }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "docs": [
+    {
+      "doc": {
+        "_index": "_index",
+        "_id": "_id",
+        "_source": {
+          "env": "us-east-1-prod",
+          "tags": "prod"
+        },
+        "_ingest": {
+          "timestamp": "2025-11-25T06:22:29.359771Z"
+        }
       }
     }
   ]
