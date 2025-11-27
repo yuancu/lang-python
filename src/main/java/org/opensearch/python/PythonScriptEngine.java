@@ -30,7 +30,8 @@ public class PythonScriptEngine implements ScriptEngine {
                         FieldScript.CONTEXT, PythonFieldScript::newFieldScriptFactory,
                         ScoreScript.CONTEXT, PythonScoreScript::newScoreScriptFactory,
                         TemplateScript.CONTEXT, PythonTemplateScript::newTemplateScriptFactory,
-                        IngestScript.CONTEXT, PythonIngestScript::newIngestScriptFactory);
+                        IngestScript.CONTEXT, PythonIngestScript::newIngestScriptFactory,
+                        SearchScript.CONTEXT, PythonSearchScript::newSearchScriptFactory);
     }
 
     @Override
