@@ -232,6 +232,8 @@ Search processor scripts modify search requests before they are executed.
 - `params: dict[str, Any]`: User-provided parameters from the processor configuration.
 - `ctx['_source']: dict[str, Any]`: A map representing the search request that can be modified. You can write to properties like `size`, `from`, `explain`, `timeout`, etc.
 
+For a complete list of supported editable request fields and their definitions, see the [OpenSearch Script Processor documentation](https://docs.opensearch.org/latest/search-plugins/search-pipelines/script-processor/).
+
 **Example - Conditional logic with variables:**
 
 ```json
@@ -241,7 +243,10 @@ PUT /_search/pipeline/conditional_limit
     {
       "script": {
         "lang": "python",
-        "source": "MAX_SIZE = 5\nDEFAULT_SIZE = 3\nctx['_source']['size'] = MAX_SIZE if True else DEFAULT_SIZE"
+        "params": {
+          "use_max_size": true
+        },
+        "source": "MAX_SIZE = 5\nDEFAULT_SIZE = 3\nctx['_source']['size'] = MAX_SIZE if params.get('use_max_size', False) else DEFAULT_SIZE"
       }
     }
   ]
@@ -254,7 +259,7 @@ GET /test_index/_search?search_pipeline=conditional_limit
   "query": {
     "match_all": {}
   },
-  "size": 20
+  "size": 10
 }
 ```
 

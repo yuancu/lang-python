@@ -6,10 +6,12 @@
           request_processors:
             - script:
                 lang: python
+                params:
+                  use_max_size: true
                 source: |
-                  MAX_SIZE = 10
-                  DEFAULT_SIZE = 5
-                  ctx['_source']['size'] = MAX_SIZE if True else DEFAULT_SIZE
+                  MAX_SIZE = 5
+                  DEFAULT_SIZE = 3
+                  ctx['_source']['size'] = MAX_SIZE if params.get('use_max_size', False) else DEFAULT_SIZE
 
   - do:
       indices.create:
@@ -39,16 +41,6 @@
           - { title: "Document 6" }
           - index: { _id: "7" }
           - { title: "Document 7" }
-          - index: { _id: "8" }
-          - { title: "Document 8" }
-          - index: { _id: "9" }
-          - { title: "Document 9" }
-          - index: { _id: "10" }
-          - { title: "Document 10" }
-          - index: { _id: "11" }
-          - { title: "Document 11" }
-          - index: { _id: "12" }
-          - { title: "Document 12" }
 
   - do:
       search:
@@ -57,9 +49,9 @@
         body:
           query:
             match_all: {}
-          size: 20
+          size: 10
 
-  - length: { hits.hits: 10 }
+  - length: { hits.hits: 5 }
 
   - do:
       indices.delete:
