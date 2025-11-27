@@ -217,3 +217,84 @@ Response:
   ]
 }
 ```
+
+## Search processor
+
+Search processor scripts modify search requests before they are executed.
+
+**Use cases:**
+
+- Enabling/disabling query features (e.g., explain)
+- Implementing custom search request transformations
+
+**Variables**
+
+- `params: dict[str, Any]`: User-provided parameters from the processor configuration.
+- `ctx['_source']: dict[str, Any]`: A map representing the search request that can be modified. You can write to properties like `size`, `from`, `explain`, `timeout`, etc.
+
+**Example - Conditional logic with variables:**
+
+```json
+PUT /_search/pipeline/conditional_limit
+{
+  "request_processors": [
+    {
+      "script": {
+        "lang": "python",
+        "source": "MAX_SIZE = 5\nDEFAULT_SIZE = 3\nctx['_source']['size'] = MAX_SIZE if True else DEFAULT_SIZE"
+      }
+    }
+  ]
+}
+```
+
+```json
+GET /test_index/_search?search_pipeline=conditional_limit
+{
+  "query": {
+    "match_all": {}
+  },
+  "size": 20
+}
+```
+
+Response (simplified):
+
+```json
+{
+  "hits": {
+    "hits": [
+      {
+        "_id": "1",
+        "_source": {
+          "title": "Document 1"
+        }
+      },
+      {
+        "_id": "2",
+        "_source": {
+          "title": "Document 2"
+        }
+      },
+      {
+        "_id": "3",
+        "_source": {
+          "title": "Document 3"
+        }
+      },
+      {
+        "_id": "4",
+        "_source": {
+          "title": "Document 4"
+        }
+      },
+      {
+        "_id": "5",
+        "_source": {
+          "title": "Document 5"
+        }
+      }
+    ]
+  }
+}
+```
