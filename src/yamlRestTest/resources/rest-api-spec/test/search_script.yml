@@ -1,0 +1,70 @@
+"Test python search pipeline script with conditional logic":
+  - do:
+      search_pipeline.put:
+        id: "test_pipeline_conditional"
+        body:
+          request_processors:
+            - script:
+                lang: python
+                source: |
+                  MAX_SIZE = 10
+                  DEFAULT_SIZE = 5
+                  ctx['_source']['size'] = MAX_SIZE if True else DEFAULT_SIZE
+
+  - do:
+      indices.create:
+        index: test_index_conditional
+        body:
+          mappings:
+            properties:
+              title:
+                type: text
+
+  - do:
+      bulk:
+        index: test_index_conditional
+        refresh: true
+        body:
+          - index: { _id: "1" }
+          - { title: "Document 1" }
+          - index: { _id: "2" }
+          - { title: "Document 2" }
+          - index: { _id: "3" }
+          - { title: "Document 3" }
+          - index: { _id: "4" }
+          - { title: "Document 4" }
+          - index: { _id: "5" }
+          - { title: "Document 5" }
+          - index: { _id: "6" }
+          - { title: "Document 6" }
+          - index: { _id: "7" }
+          - { title: "Document 7" }
+          - index: { _id: "8" }
+          - { title: "Document 8" }
+          - index: { _id: "9" }
+          - { title: "Document 9" }
+          - index: { _id: "10" }
+          - { title: "Document 10" }
+          - index: { _id: "11" }
+          - { title: "Document 11" }
+          - index: { _id: "12" }
+          - { title: "Document 12" }
+
+  - do:
+      search:
+        index: test_index_conditional
+        search_pipeline: test_pipeline_conditional
+        body:
+          query:
+            match_all: {}
+          size: 20
+
+  - length: { hits.hits: 10 }
+
+  - do:
+      indices.delete:
+        index: test_index_conditional
+
+  - do:
+      search_pipeline.delete:
+        id: "test_pipeline_conditional"
