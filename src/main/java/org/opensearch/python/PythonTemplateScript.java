@@ -48,8 +48,7 @@ public class PythonTemplateScript {
         private static String executePython(
                 ThreadPool threadPool, String code, Map<String, ?> params) {
             Object result =
-                    ExecutionUtils.executePython(
-                            threadPool, code, params, null, null, null);
+                    ExecutionUtils.executePython(threadPool, code, params, null, null, null);
             if (result == null) {
                 logger.warn("Did not get any result from Python execution");
                 return "";

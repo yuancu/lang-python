@@ -60,6 +60,17 @@ implementation "org.graalvm.sdk:graal-sdk:$graalVersion"
 implementation "org.antlr:antlr4-runtime:$antlr4Version"
 }
 
+// Override OpenSearch build tools to enable annotation processing for Lombok
+tasks.withType(JavaCompile).configureEach {
+	// OpenSearch build tools add -proc:none which disables annotation processing
+	// We need to override this to enable Lombok
+	doFirst {
+		options.compilerArgs = options.compilerArgs.collect {
+			it == '-proc:none' ? '-proc:full' : it
+		}
+	}
+}
+
 def pluginName = 'lang-python'
 def pluginDescription = 'Python as a scripting language for OpenSearch'
 def packagePath = 'org.opensearch'

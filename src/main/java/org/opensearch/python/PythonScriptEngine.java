@@ -8,7 +8,6 @@ package org.opensearch.python;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
-
 import lombok.Setter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -22,8 +21,7 @@ public class PythonScriptEngine implements ScriptEngine {
     // Supported contexts (score, field, template, etc.) and their factories
     private static Map<ScriptContext<?>, BiFunction<String, ThreadPool, ScriptFactory>> contexts;
     private final Settings settings;
-    @Setter
-    private ThreadPool threadPool;
+    @Setter private ThreadPool threadPool;
 
     public PythonScriptEngine(Settings settings) {
         this.settings = settings;

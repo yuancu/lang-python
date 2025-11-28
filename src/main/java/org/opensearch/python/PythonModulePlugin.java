@@ -96,6 +96,7 @@ public class PythonModulePlugin extends Plugin implements ScriptPlugin, ActionPl
                 ThreadPool.Names.GENERIC);
 
         PythonScriptEngine engine = pythonScriptEngine.get();
+        // Lazily assign its thread pool
         engine.setThreadPool(threadPool);
         // This is to bind python script engine in guice
         return Collections.singletonList(engine);
