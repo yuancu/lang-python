@@ -22,7 +22,6 @@ import lombok.Setter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.EnvironmentAccess;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
@@ -96,18 +95,15 @@ public class ExecutionUtils {
                 .allowCreateThread(true)
                 .allowNativeAccess(true)
                 .allowCreateProcess(true)
-                // Allow access to environment variables so subprocesses can locate binaries like
-                // patchelf
-                .allowEnvironmentAccess(EnvironmentAccess.INHERIT)
                 // Reference for Python context options:
                 // https://www.graalvm.org/python/docs/#python-context-options
                 .option(
                         "python.Executable",
                         String.format(
                                 Locale.ROOT, "%s/venv/bin/graalpy", resourcesDir.toAbsolutePath()))
-                // Set to true to allow multiple contexts to load shared native libraries
-                // When true, GraalPy creates isolated copies of native modules for each context
-                .option("python.IsolateNativeModules", "true")
+                // Set to false to use shared native modules across contexts
+                // Setting to true would require patchelf execution which fails in restricted environments
+                .option("python.IsolateNativeModules", "false")
                 // Enable verbose warnings for debugging native extensions
                 .option("python.WarnExperimentalFeatures", "true")
                 // Show detailed stack traces for debugging
