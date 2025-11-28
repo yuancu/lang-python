@@ -108,15 +108,6 @@ public class ExecutionUtils {
                 // Set to true to allow multiple contexts to load shared native libraries
                 // When true, GraalPy creates isolated copies of native modules for each context
                 .option("python.IsolateNativeModules", "true")
-                // Provide PATH to subprocesses so GraalPy can locate patchelf when duplicating
-                // native libraries. The subprocess needs to find patchelf to modify SONAME in
-                // duplicated .so files
-                .option(
-                        "python.EnvironmentVariables",
-                        String.format(
-                                Locale.ROOT,
-                                "PATH=%s:/usr/bin:/bin:/usr/local/bin",
-                                System.getenv("PATH")))
                 // Enable verbose warnings for debugging native extensions
                 .option("python.WarnExperimentalFeatures", "true")
                 // Show detailed stack traces for debugging
