@@ -1,0 +1,71 @@
+"Test execution contexts are isolated":
+  # Execute the query multiple times so that it leaves traces in each thread in the thread pool if not isolated.
+  # This is not reliable because the threads may not be exhausted this way. Yet this is the best I can do because
+  # the number of thread is not dynamically adjustable. It will slow down all yaml tests if I restrict the number
+  # of the threads to 1 in the build file, where the number of thread is set at the start time.
+  - do:
+      python.execute:
+        body:
+          script:
+            source: |
+              i = 10
+              f"Global variable i equals {i}"
+  - match: { "result": "Global variable i equals 10" }
+
+  - do:
+      python.execute:
+        body:
+          script:
+            source: |
+              i = 20
+              f"Global variable i equals {i}"
+  - match: { "result": "Global variable i equals 20" }
+
+  - do:
+      python.execute:
+        body:
+          script:
+            source: |
+              i = 30
+              f"Global variable i equals {i}"
+  - match: { "result": "Global variable i equals 30" }
+
+  - do:
+      python.execute:
+        body:
+          script:
+            source: |
+              i = 40
+              f"Global variable i equals {i}"
+  - match: { "result": "Global variable i equals 40" }
+
+  - do:
+      python.execute:
+        body:
+          script:
+            source: |
+              i = 50
+              f"Global variable i equals {i}"
+  - match: { "result": "Global variable i equals 50" }
+
+  - do:
+      catch: bad_request
+      python.execute:
+        body:
+          script:
+            source: |
+              f"Global variable i should not be defined {i}"
+
+  - match: { error.type: "script_exception" }
+  - match: { error.script_stack.0: "java.util.concurrent.ExecutionException: NameError: NameError: name 'i' is not defined" }
+
+  - do:
+      catch: bad_request
+      python.execute:
+        body:
+          script:
+            source: |
+              f"Global variable i should not be defined {i}"
+
+  - match: { error.type: "script_exception" }
+  - match: { error.script_stack.0: "java.util.concurrent.ExecutionException: NameError: NameError: name 'i' is not defined" }
