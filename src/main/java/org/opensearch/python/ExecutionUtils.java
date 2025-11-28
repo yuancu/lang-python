@@ -22,6 +22,7 @@ import lombok.Setter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.EnvironmentAccess;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
@@ -97,7 +98,7 @@ public class ExecutionUtils {
                 .allowCreateProcess(true)
                 // Allow access to environment variables so subprocesses can locate binaries like
                 // patchelf
-                .allowEnvironmentAccess(true)
+                .allowEnvironmentAccess(EnvironmentAccess.INHERIT)
                 // Reference for Python context options:
                 // https://www.graalvm.org/python/docs/#python-context-options
                 .option(
