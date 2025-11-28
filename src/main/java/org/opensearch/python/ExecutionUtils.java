@@ -45,8 +45,22 @@ public class ExecutionUtils {
                     // The value is set in build.gradle
                     .resourceDirectory("GRAALPY-VFS/org.opensearch/lang-python")
                     .build();
-    private static final ThreadLocal<Context> context =
-            ThreadLocal.withInitial(ExecutionUtils::createContext);
+    static Path resourcesDir;
+
+    static {
+        // Extract VFS resources (Python packages, native extensions) to the cluster's temp
+        // directory. OpenSearch sets java.io.tmpdir to a cluster-specific location that's writable
+        // within the security manager constraints. Native libraries must be extracted to a real
+        // filesystem path to be loaded by Python's C extension loader.
+        // Reference: https://www.graalvm.org/python/docs/#virtual-filesystem
+        resourcesDir = Path.of(System.getProperty("java.io.tmpdir"), "graalpy-resources");
+        logger.info("Extracting GraalPy resources to: {}", resourcesDir.toAbsolutePath());
+        try {
+            GraalPyResources.extractVirtualFileSystemResources(vfs, resourcesDir);
+        } catch (Exception e) {
+            logger.error("CAN'T EXTRACT RESOURCES TO TARGET", e);
+        }
+    }
 
     private static Value executeWorker(
             Context context,
@@ -71,19 +85,6 @@ public class ExecutionUtils {
     }
 
     private static Context createContext() {
-        // Extract VFS resources (Python packages, native extensions) to the cluster's temp
-        // directory. OpenSearch sets java.io.tmpdir to a cluster-specific location that's writable
-        // within the security manager constraints. Native libraries must be extracted to a real
-        // filesystem path to be loaded by Python's C extension loader.
-        // Reference: https://www.graalvm.org/python/docs/#virtual-filesystem
-        Path resourcesDir = Path.of(System.getProperty("java.io.tmpdir"), "graalpy-resources");
-        logger.info("Extracting GraalPy resources to: {}", resourcesDir.toAbsolutePath());
-        try {
-            GraalPyResources.extractVirtualFileSystemResources(vfs, resourcesDir);
-        } catch (Exception e) {
-            logger.error("CAN'T EXTRACT RESOURCES TO TARGET", e);
-        }
-
         return GraalPyResources.contextBuilder(vfs)
                 .sandbox(SandboxPolicy.TRUSTED)
                 .allowHostAccess(HostAccess.ALL)
@@ -114,14 +115,6 @@ public class ExecutionUtils {
                 .build();
     }
 
-    public static void cleanupThreadLocalContext() {
-        Context contextLocal = context.get();
-        if (contextLocal != null) {
-            contextLocal.close();
-            context.remove();
-        }
-    }
-
     public static Object executePython(
             ThreadPool threadPool,
             String code,
@@ -133,10 +126,9 @@ public class ExecutionUtils {
         analyzer.checkSemantic();
         final ExecutorService executor = threadPool.executor(ThreadPool.Names.GENERIC);
 
-        try {
+        try (Context context = createContext()) {
             final Future<Value> futureResult =
-                    executor.submit(
-                            () -> executeWorker(context.get(), code, params, doc, ctx, score));
+                    executor.submit(() -> executeWorker(context, code, params, doc, ctx, score));
 
             try {
                 Value result = futureResult.get(TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
@@ -208,33 +200,6 @@ public class ExecutionUtils {
             return result.toString();
         } catch (Exception e) {
             logger.warn("Error extracting value from result: {}", e.getMessage());
-            return result.toString();
-        }
-    }
-
-    public static String executePythonAsString(
-            ThreadPool threadPool,
-            String code,
-            Map<String, ?> params,
-            Map<String, ?> doc,
-            Map<String, ?> ctx,
-            Double score) {
-        Object result = executePython(threadPool, code, params, doc, ctx, score);
-        if (result == null) {
-            logger.debug("Did not get any result from Python execution");
-            return "";
-        }
-        if (result instanceof String) {
-            return (String) result;
-        } else if (result instanceof Double) {
-            return String.valueOf(result);
-        } else if (result instanceof Boolean) {
-            return String.valueOf(result);
-        } else {
-            logger.warn(
-                    "Python execution only accepts string, number, or boolean as results for the"
-                            + " time being, but got: {}",
-                    result);
             return result.toString();
         }
     }

@@ -15,7 +15,7 @@ ext {
 repositories {
 	mavenLocal()
 	maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
-	maven { url "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
+	maven { url = "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
 	mavenCentral()
 	maven { url = "https://plugins.gradle.org/m2/" }
 }
@@ -31,6 +31,7 @@ id 'idea'
 id 'eclipse'
 id 'org.graalvm.buildtools.native' version '0.11.3'
 id 'org.graalvm.python' version '25.0.1'
+id 'io.freefair.lombok' version '9.1.0'
 id 'com.diffplug.spotless' version '8.1.0'
 }
 
@@ -57,7 +58,17 @@ implementation "org.graalvm.polyglot:polyglot:$graalVersion"
 implementation "org.graalvm.python:python-resources:$graalVersion" // Core Python stdlib and resources
 implementation "org.graalvm.sdk:graal-sdk:$graalVersion"
 implementation "org.antlr:antlr4-runtime:$antlr4Version"
-implementation 'org.projectlombok:lombok:1.18.42'
+}
+
+// Override OpenSearch build tools to enable annotation processing for Lombok
+tasks.withType(JavaCompile).configureEach {
+	// OpenSearch build tools add -proc:none which disables annotation processing
+	// We need to override this to enable Lombok
+	doFirst {
+		options.compilerArgs = options.compilerArgs.collect {
+			it == '-proc:none' ? '-proc:full' : it
+		}
+	}
 }
 
 def pluginName = 'lang-python'
@@ -104,7 +115,7 @@ validateNebulaPom.enabled = false
 repositories {
 mavenLocal()
 maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
-maven { url "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
+maven { url = "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
 mavenCentral()
 maven { url = "https://plugins.gradle.org/m2/" }
 }
