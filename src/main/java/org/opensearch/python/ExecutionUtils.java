@@ -6,7 +6,6 @@
 package org.opensearch.python;
 
 import java.io.BufferedInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -14,6 +13,7 @@ import java.io.StringWriter;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -131,13 +131,8 @@ public class ExecutionUtils {
 
         try {
             URL url = new URL(downloadUrl);
-            try (InputStream in = new BufferedInputStream(url.openStream());
-                    FileOutputStream out = new FileOutputStream(patchelfPath.toFile())) {
-                byte[] buffer = new byte[8192];
-                int bytesRead;
-                while ((bytesRead = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, bytesRead);
-                }
+            try (InputStream in = new BufferedInputStream(url.openStream())) {
+                Files.copy(in, patchelfPath, StandardCopyOption.REPLACE_EXISTING);
             }
 
             // Set executable permissions (chmod +x)
@@ -151,7 +146,9 @@ public class ExecutionUtils {
             perms.add(PosixFilePermission.OTHERS_EXECUTE);
             Files.setPosixFilePermissions(patchelfPath, perms);
 
-            logger.info("Successfully downloaded and set up patchelf at: {}", patchelfPath.toAbsolutePath());
+            logger.info(
+                    "Successfully downloaded and set up patchelf at: {}",
+                    patchelfPath.toAbsolutePath());
             return binDir;
         } catch (Exception e) {
             logger.error("Failed to download patchelf: {}", e.getMessage(), e);
@@ -217,7 +214,9 @@ public class ExecutionUtils {
 
         // Configure native module isolation if patchelf is available
         if (patchelfBinDir != null) {
-            logger.info("Enabling IsolateNativeModules with patchelf at: {}", patchelfBinDir.toAbsolutePath());
+            logger.info(
+                    "Enabling IsolateNativeModules with patchelf at: {}",
+                    patchelfBinDir.toAbsolutePath());
             // Allow subprocesses to inherit environment variables (including PATH)
             // This enables GraalPy to find and execute patchelf
             builder.allowEnvironmentAccess(EnvironmentAccess.INHERIT);
@@ -232,7 +231,8 @@ public class ExecutionUtils {
             builder.environment("PATH", newPath);
         } else {
             logger.info(
-                    "Using shared native modules (IsolateNativeModules=false) - patchelf not available");
+                    "Using shared native modules (IsolateNativeModules=false) - patchelf not"
+                            + " available");
             // Set to false to use shared native modules across contexts
             builder.option("python.IsolateNativeModules", "false");
         }
