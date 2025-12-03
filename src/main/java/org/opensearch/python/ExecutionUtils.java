@@ -116,16 +116,24 @@ public class ExecutionUtils {
             return binDir;
         }
 
-        // Download patchelf from NixOS binary cache
-        // These are statically-linked binaries that work on any Linux distribution
-        String patchelfVersion = "0.15.0";
-        String downloadUrl =
-                String.format(
-                        Locale.ROOT,
-                        "https://github.com/NixOS/patchelf/releases/download/%s/patchelf-%s-%s",
-                        patchelfVersion,
-                        normalizedArch,
-                        "linux");
+        // Download patchelf static binary from jsdelivr CDN
+        // jsdelivr serves files from GitHub releases with a stable CDN
+        // Using binaries from the mayeut/patchelf-wrapper project which provides static builds
+        // Version 0.0.11 bundles patchelf 0.17.2
+        String downloadUrl;
+        if (normalizedArch.equals("x86_64")) {
+            // Static patchelf binary for x86_64
+            downloadUrl =
+                    String.format(
+                            Locale.ROOT,
+                            "https://cdn.jsdelivr.net/gh/mayeut/patchelf-wrapper@0.0.11/patchelf/bin/patchelf-linux-x86_64");
+        } else {
+            // Static patchelf binary for aarch64
+            downloadUrl =
+                    String.format(
+                            Locale.ROOT,
+                            "https://cdn.jsdelivr.net/gh/mayeut/patchelf-wrapper@0.0.11/patchelf/bin/patchelf-linux-aarch64");
+        }
 
         logger.info("Downloading patchelf from: {}", downloadUrl);
 
