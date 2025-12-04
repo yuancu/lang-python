@@ -95,6 +95,9 @@ public class ExecutionUtils {
                 .allowCreateThread(true)
                 .allowNativeAccess(true)
                 .allowCreateProcess(true)
+                // Allow access to environment variables so subprocesses can locate binaries like
+                // patchelf (installed via Python package)
+                .allowEnvironmentAccess(true)
                 // Reference for Python context options:
                 // https://www.graalvm.org/python/docs/#python-context-options
                 .option(
@@ -102,7 +105,8 @@ public class ExecutionUtils {
                         String.format(
                                 Locale.ROOT, "%s/venv/bin/graalpy", resourcesDir.toAbsolutePath()))
                 // Set to true to allow multiple contexts to load shared native libraries
-                .option("python.IsolateNativeModules", "false")
+                // When true, GraalPy creates isolated copies of native modules for each context
+                .option("python.IsolateNativeModules", "true")
                 // Enable verbose warnings for debugging native extensions
                 .option("python.WarnExperimentalFeatures", "true")
                 // Show detailed stack traces for debugging
