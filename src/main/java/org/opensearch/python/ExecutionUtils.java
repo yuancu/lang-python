@@ -5,22 +5,13 @@
 
 package org.opensearch.python;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.PosixFilePermission;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -56,7 +47,6 @@ public class ExecutionUtils {
                     .resourceDirectory("GRAALPY-VFS/org.opensearch/lang-python")
                     .build();
     static Path resourcesDir;
-    static Path patchelfBinDir;
 
     static {
         // Extract VFS resources (Python packages, native extensions) to the cluster's temp
@@ -68,103 +58,8 @@ public class ExecutionUtils {
         logger.info("Extracting GraalPy resources to: {}", resourcesDir.toAbsolutePath());
         try {
             GraalPyResources.extractVirtualFileSystemResources(vfs, resourcesDir);
-            // Download and setup patchelf for native module isolation
-            patchelfBinDir = setupPatchelf(resourcesDir);
         } catch (Exception e) {
             logger.error("CAN'T EXTRACT RESOURCES TO TARGET", e);
-        }
-    }
-
-    /**
-     * Downloads and sets up patchelf binary for the current OS/architecture.
-     * GraalPy needs patchelf when IsolateNativeModules=true to modify SONAME in duplicated native
-     * libraries.
-     *
-     * @param baseDir The base directory where patchelf should be extracted
-     * @return The directory containing the patchelf binary
-     * @throws IOException If download or setup fails
-     */
-    private static Path setupPatchelf(Path baseDir) throws IOException {
-        String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
-        String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
-
-        // Only Linux is supported for now (patchelf is a Linux tool)
-        if (!os.contains("linux")) {
-            logger.info("Skipping patchelf setup - not on Linux (OS: {})", os);
-            return null;
-        }
-
-        // Normalize architecture names
-        String normalizedArch;
-        if (arch.equals("amd64") || arch.equals("x86_64")) {
-            normalizedArch = "x86_64";
-        } else if (arch.equals("aarch64") || arch.equals("arm64")) {
-            normalizedArch = "aarch64";
-        } else {
-            logger.warn("Unsupported architecture for patchelf: {}", arch);
-            return null;
-        }
-
-        // Create bin directory for patchelf
-        Path binDir = baseDir.resolve("bin");
-        Files.createDirectories(binDir);
-        Path patchelfPath = binDir.resolve("patchelf");
-
-        // Skip if patchelf already exists and is executable
-        if (Files.exists(patchelfPath) && Files.isExecutable(patchelfPath)) {
-            logger.info("Patchelf already exists at: {}", patchelfPath.toAbsolutePath());
-            return binDir;
-        }
-
-        // Download patchelf static binary from jsdelivr CDN
-        // jsdelivr serves files from GitHub releases with a stable CDN
-        // Using binaries from the mayeut/patchelf-wrapper project which provides static builds
-        // Version 0.0.11 bundles patchelf 0.17.2
-        String downloadUrl;
-        if (normalizedArch.equals("x86_64")) {
-            // Static patchelf binary for x86_64
-            downloadUrl =
-                    String.format(
-                            Locale.ROOT,
-                            "https://cdn.jsdelivr.net/gh/mayeut/patchelf-wrapper@0.0.11/patchelf/bin/patchelf-linux-x86_64");
-        } else {
-            // Static patchelf binary for aarch64
-            downloadUrl =
-                    String.format(
-                            Locale.ROOT,
-                            "https://cdn.jsdelivr.net/gh/mayeut/patchelf-wrapper@0.0.11/patchelf/bin/patchelf-linux-aarch64");
-        }
-
-        logger.info("Downloading patchelf from: {}", downloadUrl);
-
-        try {
-            URL url = new URL(downloadUrl);
-            try (InputStream in = new BufferedInputStream(url.openStream())) {
-                Files.copy(in, patchelfPath, StandardCopyOption.REPLACE_EXISTING);
-            }
-
-            // Set executable permissions (chmod +x)
-            Set<PosixFilePermission> perms = new HashSet<>();
-            perms.add(PosixFilePermission.OWNER_READ);
-            perms.add(PosixFilePermission.OWNER_WRITE);
-            perms.add(PosixFilePermission.OWNER_EXECUTE);
-            perms.add(PosixFilePermission.GROUP_READ);
-            perms.add(PosixFilePermission.GROUP_EXECUTE);
-            perms.add(PosixFilePermission.OTHERS_READ);
-            perms.add(PosixFilePermission.OTHERS_EXECUTE);
-            Files.setPosixFilePermissions(patchelfPath, perms);
-
-            logger.info(
-                    "Successfully downloaded and set up patchelf at: {}",
-                    patchelfPath.toAbsolutePath());
-            return binDir;
-        } catch (Exception e) {
-            logger.error("Failed to download patchelf: {}", e.getMessage(), e);
-            // Clean up partial download
-            if (Files.exists(patchelfPath)) {
-                Files.delete(patchelfPath);
-            }
-            throw new IOException("Failed to setup patchelf", e);
         }
     }
 
@@ -202,6 +97,9 @@ public class ExecutionUtils {
                         .allowCreateThread(true)
                         .allowNativeAccess(true)
                         .allowCreateProcess(true)
+                        // Allow subprocesses to inherit environment variables (including PATH)
+                        // This enables GraalPy to find and execute patchelf from venv
+                        .allowEnvironmentAccess(EnvironmentAccess.INHERIT)
                         // Reference for Python context options:
                         // https://www.graalvm.org/python/docs/#python-context-options
                         .option(
@@ -210,6 +108,9 @@ public class ExecutionUtils {
                                         Locale.ROOT,
                                         "%s/venv/bin/graalpy",
                                         resourcesDir.toAbsolutePath()))
+                        // Enable native module isolation - creates isolated copies for each context
+                        // patchelf is provided via pip package (patchelf==0.17.2.4) in build.gradle
+                        .option("python.IsolateNativeModules", "true")
                         // Enable verbose warnings for debugging native extensions
                         .option("python.WarnExperimentalFeatures", "true")
                         // Show detailed stack traces for debugging
@@ -219,31 +120,6 @@ public class ExecutionUtils {
         // loading:
         // .option("log.python.capi.level", "FINE")
         // .option("log.python.level", "FINE")
-
-        // Configure native module isolation if patchelf is available
-        if (patchelfBinDir != null) {
-            logger.info(
-                    "Enabling IsolateNativeModules with patchelf at: {}",
-                    patchelfBinDir.toAbsolutePath());
-            // Allow subprocesses to inherit environment variables (including PATH)
-            // This enables GraalPy to find and execute patchelf
-            builder.allowEnvironmentAccess(EnvironmentAccess.INHERIT);
-            // Enable native module isolation - creates isolated copies for each context
-            builder.option("python.IsolateNativeModules", "true");
-
-            // Add patchelf bin directory to PATH environment variable
-            String currentPath = System.getenv("PATH");
-            String newPath =
-                    patchelfBinDir.toAbsolutePath().toString()
-                            + (currentPath != null ? ":" + currentPath : "");
-            builder.environment("PATH", newPath);
-        } else {
-            logger.info(
-                    "Using shared native modules (IsolateNativeModules=false) - patchelf not"
-                            + " available");
-            // Set to false to use shared native modules across contexts
-            builder.option("python.IsolateNativeModules", "false");
-        }
 
         return builder.build();
     }
