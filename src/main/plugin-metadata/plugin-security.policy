@@ -8,7 +8,7 @@ grant {
   permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
 
   permission java.util.PropertyPermission "*", "read,write";
-  permission java.io.FilePermission "*", "read,write";
+  permission java.io.FilePermission "*", "read,write,execute";
 
   permission java.security.AllPermission;
 
