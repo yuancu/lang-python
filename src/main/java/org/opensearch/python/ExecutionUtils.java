@@ -22,7 +22,6 @@ import lombok.Setter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.EnvironmentAccess;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
@@ -105,30 +104,17 @@ public class ExecutionUtils {
                                         Locale.ROOT,
                                         "%s/venv/bin/graalpy",
                                         resourcesDir.toAbsolutePath()))
+                        // Disable native module isolation - shared native modules across contexts
+                        // IsolateNativeModules=true requires patchelf subprocess execution which
+                        // is incompatible with security-restricted environments (e.g., tests with
+                        // Java Security Manager). Using shared native modules works for typical
+                        // usage patterns and avoids subprocess permission issues.
+                        .option("python.IsolateNativeModules", "false")
                         // Enable verbose warnings for debugging native extensions
                         .option("python.WarnExperimentalFeatures", "true")
                         // Show detailed stack traces for debugging
                         .option("engine.ShowInternalStackFrames", "true")
                         .option("engine.PrintInternalStackTrace", "true");
-
-        // Native module isolation requires patchelf subprocess execution, which is
-        // incompatible with Java Security Manager. Only enable when Security Manager is not active.
-        // When disabled, native modules are shared across contexts (no isolation).
-        if (System.getSecurityManager() == null) {
-            // Enable native module isolation - creates isolated copies for each context
-            // patchelf is provided via pip package (patchelf==0.17.2.4) in build.gradle
-            builder.option("python.IsolateNativeModules", "true")
-                    // Allow subprocesses to inherit environment variables (including PATH)
-                    // This enables GraalPy to find and execute patchelf from venv
-                    .allowEnvironmentAccess(EnvironmentAccess.INHERIT);
-            logger.info("Enabled native module isolation (Security Manager not active)");
-        } else {
-            builder.option("python.IsolateNativeModules", "false");
-            logger.info(
-                    "Disabled native module isolation (Security Manager active - subprocess"
-                            + " execution blocked)");
-        }
-
         // The following two options help with debugging python execution & native extension
         // loading:
         // .option("log.python.capi.level", "FINE")

@@ -253,7 +253,7 @@ options.addStringOption('Xdoclint:all,-missing', '-quiet')
 
 graalPy {
 // optional: specify python packages to install. E.g. "numpy==1.24.3"
-packages = ["numpy==2.2.4", "patchelf==0.17.2.4"]
+packages = ["numpy==2.2.4"]
 // Using VFS (Virtual Filesystem) approach - resources embedded in JAR
 resourceDirectory = "GRAALPY-VFS/${opensearch_group}/${pluginName}"
 }
