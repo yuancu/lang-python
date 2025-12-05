@@ -238,7 +238,7 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 
 testClusters.yamlRestTest {
 	testDistribution = "ARCHIVE"
-	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI --upgrade-module-path=${layout.buildDirectory.file("compiler.jar").get().asFile} --enable-native-access=org.graalvm.truffle,ALL-UNNAMED -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile} -Djdk.lang.Process.launchMechanism=FORK"
+	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI --upgrade-module-path=${layout.buildDirectory.file("compiler.jar").get().asFile} --enable-native-access=org.graalvm.truffle,ALL-UNNAMED -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile}"
 }
 
 // Skip filepermissions check since the generated python binaries will be executable

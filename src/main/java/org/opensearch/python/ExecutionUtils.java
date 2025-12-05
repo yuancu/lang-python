@@ -97,9 +97,6 @@ public class ExecutionUtils {
                         .allowCreateThread(true)
                         .allowNativeAccess(true)
                         .allowCreateProcess(true)
-                        // Allow subprocesses to inherit environment variables (including PATH)
-                        // This enables GraalPy to find and execute patchelf from venv
-                        .allowEnvironmentAccess(EnvironmentAccess.INHERIT)
                         // Reference for Python context options:
                         // https://www.graalvm.org/python/docs/#python-context-options
                         .option(
@@ -108,14 +105,28 @@ public class ExecutionUtils {
                                         Locale.ROOT,
                                         "%s/venv/bin/graalpy",
                                         resourcesDir.toAbsolutePath()))
-                        // Enable native module isolation - creates isolated copies for each context
-                        // patchelf is provided via pip package (patchelf==0.17.2.4) in build.gradle
-                        .option("python.IsolateNativeModules", "true")
                         // Enable verbose warnings for debugging native extensions
                         .option("python.WarnExperimentalFeatures", "true")
                         // Show detailed stack traces for debugging
                         .option("engine.ShowInternalStackFrames", "true")
                         .option("engine.PrintInternalStackTrace", "true");
+
+        // Native module isolation requires patchelf subprocess execution, which is
+        // incompatible with Java Security Manager. Only enable when Security Manager is not active.
+        // When disabled, native modules are shared across contexts (no isolation).
+        if (System.getSecurityManager() == null) {
+            // Enable native module isolation - creates isolated copies for each context
+            // patchelf is provided via pip package (patchelf==0.17.2.4) in build.gradle
+            builder.option("python.IsolateNativeModules", "true")
+                    // Allow subprocesses to inherit environment variables (including PATH)
+                    // This enables GraalPy to find and execute patchelf from venv
+                    .allowEnvironmentAccess(EnvironmentAccess.INHERIT);
+            logger.info("Enabled native module isolation (Security Manager not active)");
+        } else {
+            builder.option("python.IsolateNativeModules", "false");
+            logger.info("Disabled native module isolation (Security Manager active - subprocess execution blocked)");
+        }
+
         // The following two options help with debugging python execution & native extension
         // loading:
         // .option("log.python.capi.level", "FINE")
