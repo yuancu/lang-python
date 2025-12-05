@@ -17,4 +17,5 @@ grant {
   permission java.lang.RuntimePermission "accessUserInformation";
   permission java.lang.RuntimePermission "loadLibrary.*";
   permission java.lang.RuntimePermission "accessClassInPackage";
+  permission java.lang.RuntimePermission "getenv.*";
 };
