@@ -124,7 +124,9 @@ public class ExecutionUtils {
             logger.info("Enabled native module isolation (Security Manager not active)");
         } else {
             builder.option("python.IsolateNativeModules", "false");
-            logger.info("Disabled native module isolation (Security Manager active - subprocess execution blocked)");
+            logger.info(
+                    "Disabled native module isolation (Security Manager active - subprocess"
+                            + " execution blocked)");
         }
 
         // The following two options help with debugging python execution & native extension
