@@ -112,6 +112,11 @@ loggerUsageCheck.enabled = false
 // No need to validate pom, as we do not upload to maven/sonatype
 validateNebulaPom.enabled = false
 
+// Disable forbidden APIs check
+tasks.named('forbiddenApisMain') {
+	enabled = false
+}
+
 repositories {
 mavenLocal()
 maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }

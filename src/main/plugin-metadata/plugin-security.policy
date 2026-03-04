@@ -8,7 +8,7 @@ grant {
   permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
 
   permission java.util.PropertyPermission "*", "read,write";
-  permission java.io.FilePermission "*", "read,write";
+  permission java.io.FilePermission "*", "read,write,execute";
 
   permission java.security.AllPermission;
 
@@ -17,4 +17,5 @@ grant {
   permission java.lang.RuntimePermission "accessUserInformation";
   permission java.lang.RuntimePermission "loadLibrary.*";
   permission java.lang.RuntimePermission "accessClassInPackage";
+  permission java.lang.RuntimePermission "getenv.*";
 };

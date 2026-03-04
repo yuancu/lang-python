@@ -85,34 +85,42 @@ public class ExecutionUtils {
     }
 
     private static Context createContext() {
-        return GraalPyResources.contextBuilder(vfs)
-                .sandbox(SandboxPolicy.TRUSTED)
-                .allowHostAccess(HostAccess.ALL)
-                // The following options are necessary for importing 3-rd party
-                // libraries that load native libraries (like numpy)
-                .allowExperimentalOptions(true)
-                .allowIO(IOAccess.ALL)
-                .allowCreateThread(true)
-                .allowNativeAccess(true)
-                .allowCreateProcess(true)
-                // Reference for Python context options:
-                // https://www.graalvm.org/python/docs/#python-context-options
-                .option(
-                        "python.Executable",
-                        String.format(
-                                Locale.ROOT, "%s/venv/bin/graalpy", resourcesDir.toAbsolutePath()))
-                // Set to true to allow multiple contexts to load shared native libraries
-                .option("python.IsolateNativeModules", "false")
-                // Enable verbose warnings for debugging native extensions
-                .option("python.WarnExperimentalFeatures", "true")
-                // Show detailed stack traces for debugging
-                .option("engine.ShowInternalStackFrames", "true")
-                .option("engine.PrintInternalStackTrace", "true")
-                // The following two options help with debugging python execution & native extension
-                // loading:
-                // .option("log.python.capi.level", "FINE")
-                // .option("log.python.level", "FINE")
-                .build();
+        Context.Builder builder =
+                GraalPyResources.contextBuilder(vfs)
+                        .sandbox(SandboxPolicy.TRUSTED)
+                        .allowHostAccess(HostAccess.ALL)
+                        // The following options are necessary for importing 3-rd party
+                        // libraries that load native libraries (like numpy)
+                        .allowExperimentalOptions(true)
+                        .allowIO(IOAccess.ALL)
+                        .allowCreateThread(true)
+                        .allowNativeAccess(true)
+                        .allowCreateProcess(true)
+                        // Reference for Python context options:
+                        // https://www.graalvm.org/python/docs/#python-context-options
+                        .option(
+                                "python.Executable",
+                                String.format(
+                                        Locale.ROOT,
+                                        "%s/venv/bin/graalpy",
+                                        resourcesDir.toAbsolutePath()))
+                        // Disable native module isolation - shared native modules across contexts
+                        // IsolateNativeModules=true requires patchelf subprocess execution which
+                        // is incompatible with security-restricted environments (e.g., tests with
+                        // Java Security Manager). Using shared native modules works for typical
+                        // usage patterns and avoids subprocess permission issues.
+                        .option("python.IsolateNativeModules", "false")
+                        // Enable verbose warnings for debugging native extensions
+                        .option("python.WarnExperimentalFeatures", "true")
+                        // Show detailed stack traces for debugging
+                        .option("engine.ShowInternalStackFrames", "true")
+                        .option("engine.PrintInternalStackTrace", "true");
+        // The following two options help with debugging python execution & native extension
+        // loading:
+        // .option("log.python.capi.level", "FINE")
+        // .option("log.python.level", "FINE")
+
+        return builder.build();
     }
 
     public static Object executePython(
