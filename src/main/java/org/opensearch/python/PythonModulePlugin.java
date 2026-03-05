@@ -5,6 +5,7 @@
 
 package org.opensearch.python;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -21,7 +22,6 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsFilter;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
@@ -55,7 +55,6 @@ import org.opensearch.watcher.ResourceWatcherService;
  */
 public class PythonModulePlugin extends Plugin implements ScriptPlugin, ActionPlugin {
     private static final Logger logger = LogManager.getLogger();
-    private static final int WARMUP_DELAY_SECONDS = 5;
     private final SetOnce<PythonScriptEngine> pythonScriptEngine = new SetOnce<>();
 
     public PythonModulePlugin() {}
@@ -79,21 +78,18 @@ public class PythonModulePlugin extends Plugin implements ScriptPlugin, ActionPl
             NamedWriteableRegistry namedWriteableRegistry,
             IndexNameExpressionResolver indexNameExpressionResolver,
             Supplier<RepositoriesService> repositoriesServiceSupplier) {
-        // Asynchronously warm up Python engine to reduce cold start latency
-        threadPool.schedule(
-                () -> {
-                    try {
-                        logger.info("Starting Python engine warmup...");
-                        long startTime = System.currentTimeMillis();
-                        ExecutionUtils.executePython(threadPool, "1+1", null, null, null, null);
-                        long duration = System.currentTimeMillis() - startTime;
-                        logger.info("Python engine warmed up successfully in {}ms", duration);
-                    } catch (Exception e) {
-                        logger.warn("Python engine warmup failed", e);
-                    }
-                },
-                TimeValue.timeValueSeconds(WARMUP_DELAY_SECONDS),
-                ThreadPool.Names.GENERIC);
+        // Synchronously warm up the Python context pool and pre-load numpy in each context.
+        // This blocks node startup while contexts are created and patchelf isolates native
+        // libraries. After warmup, contexts are reused without further subprocess creation.
+        try {
+            logger.info("Starting Python engine warmup...");
+            long startTime = System.currentTimeMillis();
+            ExecutionUtils.warmup();
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("Python engine warmed up successfully in {}ms", duration);
+        } catch (Exception e) {
+            logger.warn("Python engine warmup failed", e);
+        }
 
         PythonScriptEngine engine = pythonScriptEngine.get();
         // Lazily assign its thread pool
@@ -113,6 +109,11 @@ public class PythonModulePlugin extends Plugin implements ScriptPlugin, ActionPl
                 new ActionHandler<>(
                         PythonExecuteAction.INSTANCE, PythonExecuteAction.TransportAction.class));
         return actions;
+    }
+
+    @Override
+    public void close() throws IOException {
+        ExecutionUtils.closeContextPool();
     }
 
     public List<RestHandler> getRestHandlers(
