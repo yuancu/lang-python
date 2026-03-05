@@ -57,6 +57,7 @@ dependencies {
 implementation "org.graalvm.polyglot:polyglot:$graalVersion"
 implementation "org.graalvm.python:python-resources:$graalVersion" // Core Python stdlib and resources
 implementation "org.graalvm.sdk:graal-sdk:$graalVersion"
+implementation "org.graalvm.sdk:nativeimage:$graalVersion" // Required by IOHelper for VirtualFileSystem on non-GraalVM JDKs
 implementation "org.antlr:antlr4-runtime:$antlr4Version"
 }
 
