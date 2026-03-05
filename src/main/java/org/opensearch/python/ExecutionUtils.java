@@ -113,11 +113,6 @@ public class ExecutionUtils {
                                 List<String> cmd = command.getCommand();
                                 ProcessBuilder pb = new ProcessBuilder(cmd);
 
-                                String dir = command.getDirectory();
-                                if (dir != null) {
-                                    pb.directory(new java.io.File(dir));
-                                }
-
                                 Map<String, String> env = command.getEnvironment();
                                 if (env != null) {
                                     pb.environment().putAll(env);
