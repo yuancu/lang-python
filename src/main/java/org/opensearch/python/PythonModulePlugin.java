@@ -88,7 +88,10 @@ public class PythonModulePlugin extends Plugin implements ScriptPlugin, ActionPl
             ExecutionUtils.warmup();
             long duration = System.currentTimeMillis() - startTime;
             logger.info("Python engine warmed up successfully in {}ms", duration);
-        } catch (Exception e) {
+        } catch (Exception | ExceptionInInitializerError e) {
+            // ExceptionInInitializerError occurs when GraalPy runtime is unavailable
+            // (e.g., running on a standard JDK without the polyglot module path).
+            // The plugin still loads but Python execution will not work.
             logger.warn("Python engine warmup failed", e);
         }
 
@@ -114,7 +117,11 @@ public class PythonModulePlugin extends Plugin implements ScriptPlugin, ActionPl
 
     @Override
     public void close() throws IOException {
-        ExecutionUtils.closeContextPool();
+        try {
+            ExecutionUtils.closeContextPool();
+        } catch (NoClassDefFoundError e) {
+            // ExecutionUtils failed to initialize (e.g., no GraalPy runtime) — nothing to clean up
+        }
     }
 
     public List<RestHandler> getRestHandlers(
