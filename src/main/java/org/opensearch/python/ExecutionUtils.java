@@ -63,8 +63,19 @@ public class ExecutionUtils {
     private static final Logger logger = LogManager.getLogger();
     private static final String MODULE_META_SIMPLE_NAME = "module";
 
-    /** Number of pre-warmed Python contexts to keep in the pool. */
-    static final int POOL_SIZE = 2;
+    /**
+     * Whether the current OS supports IsolateNativeModules (requires ELF binary patching).
+     * macOS uses Mach-O format which GraalPy cannot yet modify for native module isolation.
+     */
+    private static final boolean ISOLATE_NATIVE_MODULES_SUPPORTED =
+            !System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("mac");
+
+    /**
+     * Number of pre-warmed Python contexts to keep in the pool. On Linux,
+     * IsolateNativeModules=true allows multiple contexts to load native libraries independently.
+     * On macOS, only the first context can load native modules, so we use a pool of 1.
+     */
+    static final int POOL_SIZE = ISOLATE_NATIVE_MODULES_SUPPORTED ? 2 : 1;
 
     /** Python global names that belong to the default module scope and must not be cleared. */
     private static final Set<String> SYSTEM_GLOBALS =
@@ -285,10 +296,13 @@ public class ExecutionUtils {
                         "python.Executable",
                         String.format(
                                 Locale.ROOT, "%s/venv/bin/graalpy", resourcesDir.toAbsolutePath()))
-                // Each context gets its own isolated copies of native .so files.
+                // On Linux, each context gets its own isolated copies of native .so files.
                 // GraalPy uses patchelf (via PROCESS_HANDLER) to give each copy a
                 // unique SONAME so the OS dynamic linker loads them independently.
-                .option("python.IsolateNativeModules", "true")
+                // On macOS, Mach-O modification is not yet supported, so we disable isolation.
+                .option(
+                        "python.IsolateNativeModules",
+                        String.valueOf(ISOLATE_NATIVE_MODULES_SUPPORTED))
                 // Enable verbose warnings for debugging native extensions
                 .option("python.WarnExperimentalFeatures", "true")
                 .build();
@@ -323,26 +337,41 @@ public class ExecutionUtils {
     }
 
     /**
-     * Discards a corrupted context and attempts to create a pre-warmed replacement. If replacement
-     * creation fails, the pool operates with reduced capacity.
+     * Recovers a context after a timeout or error and returns it to the pool.
+     *
+     * <p>When IsolateNativeModules is supported (Linux), the corrupted context is force-closed and
+     * replaced with a fresh one. When not supported (macOS), the context cannot be destroyed and
+     * recreated (native modules can only be loaded by the first context), so we interrupt it and
+     * return the same context to the pool.
      */
     private static void replaceContext(Context context) {
-        try {
-            context.close(true); // force close to interrupt any running code
-        } catch (Exception e) {
-            logger.warn("Error force-closing corrupted context: {}", e.getMessage());
-        }
-        try {
-            Context replacement = createContext();
-            replacement.eval("python", "import numpy");
-            resetContextState(replacement);
-            contextPool.offer(replacement);
-            logger.info("Replaced corrupted context. Pool size: {}", contextPool.size());
-        } catch (Exception e) {
-            logger.error(
-                    "Failed to create replacement context. Pool capacity reduced to {}",
-                    contextPool.size(),
-                    e);
+        if (ISOLATE_NATIVE_MODULES_SUPPORTED) {
+            try {
+                context.close(true); // force close to interrupt any running code
+            } catch (Exception e) {
+                logger.warn("Error force-closing corrupted context: {}", e.getMessage());
+            }
+            try {
+                Context replacement = createContext();
+                replacement.eval("python", "import numpy");
+                resetContextState(replacement);
+                contextPool.offer(replacement);
+                logger.info("Replaced corrupted context. Pool size: {}", contextPool.size());
+            } catch (Exception e) {
+                logger.error(
+                        "Failed to create replacement context. Pool capacity reduced to {}",
+                        contextPool.size(),
+                        e);
+            }
+        } else {
+            // macOS: interrupt and reuse the same context
+            try {
+                context.interrupt(java.time.Duration.ofSeconds(10));
+            } catch (Exception e) {
+                logger.warn("Error interrupting context: {}", e.getMessage());
+            }
+            resetContextState(context);
+            contextPool.offer(context);
         }
     }
 
