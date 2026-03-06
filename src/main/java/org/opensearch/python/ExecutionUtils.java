@@ -5,15 +5,24 @@
 
 package org.opensearch.python;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -22,10 +31,13 @@ import lombok.Setter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.Engine;
+import org.graalvm.polyglot.EnvironmentAccess;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.SandboxPolicy;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.io.IOAccess;
+import org.graalvm.polyglot.io.ProcessHandler;
 import org.graalvm.python.embedding.GraalPyResources;
 import org.graalvm.python.embedding.VirtualFileSystem;
 import org.opensearch.common.util.concurrent.FutureUtils;
@@ -33,10 +45,29 @@ import org.opensearch.python.phase.SemanticAnalyzer;
 import org.opensearch.script.ScriptException;
 import org.opensearch.threadpool.ThreadPool;
 
+/**
+ * Manages a persistent GraalPy context for executing Python scripts.
+ *
+ * <p>A single Python context is created during warmup and reused for all subsequent executions.
+ * This avoids the memory overhead of multiple contexts and native module isolation issues with
+ * numpy's C extensions. Between executions, user-defined globals are cleaned up to prevent
+ * information leakage while the module cache (sys.modules) is preserved for instant re-imports.
+ *
+ * <p>All Python operations are serialized through a dedicated single-thread executor to ensure
+ * thread affinity (GraalPy contexts prefer same-thread access) and avoid thread pool starvation.
+ *
+ * <p>The custom {@link ProcessHandler} uses OpenSearch's {@code AccessController} to run
+ * subprocesses with elevated privileges, bypassing the seccomp-BPF system call filter.
+ */
 public class ExecutionUtils {
     @Getter @Setter private static int TIMEOUT_IN_SECONDS = 20;
     private static final Logger logger = LogManager.getLogger();
     private static final String MODULE_META_SIMPLE_NAME = "module";
+
+    /** Python global names that belong to the default module scope and must not be cleared. */
+    private static final Set<String> SYSTEM_GLOBALS =
+            Set.of("__builtins__", "__name__", "__doc__", "__package__", "__loader__", "__spec__");
+
     // Reference:
     // https://github.com/graalvm/graal-languages-demos/blob/main/graalpy/graalpy-javase-guide/README.md
     static VirtualFileSystem vfs =
@@ -47,7 +78,76 @@ public class ExecutionUtils {
                     .build();
     static Path resourcesDir;
 
+    /**
+     * Shared GraalVM engine for JIT code caching. When the persistent context needs to be
+     * recreated (e.g., after a timeout destroys it), cached compiled code speeds up the new
+     * context's warmup significantly.
+     */
+    private static final Engine sharedEngine;
+
+    /**
+     * Persistent Python context reused for all executions. Only accessed from the {@link
+     * #pythonExecutor} thread, except for {@link Context#close(boolean)} during timeout recovery.
+     * Volatile for cross-thread visibility when nulled during recovery.
+     */
+    private static volatile Context persistentContext;
+
+    /**
+     * Baseline global keys captured after warmup (includes numpy and system globals). Keys not in
+     * this set are removed between executions to prevent information leakage.
+     */
+    private static Set<String> baselineKeys;
+
+    /**
+     * Dedicated single-thread executor for ALL Python context operations. Serializes access to the
+     * persistent context, ensures thread affinity for GraalPy, and avoids starvation of the GENERIC
+     * thread pool (callers block on Future.get() while Python runs here).
+     */
+    private static final ExecutorService pythonExecutor =
+            Executors.newSingleThreadExecutor(
+                    r -> {
+                        Thread t = new Thread(r, "python-executor");
+                        t.setDaemon(true);
+                        return t;
+                    });
+
+    /**
+     * Custom ProcessHandler that creates subprocesses with elevated privileges. The default Truffle
+     * ProcessHandler's subprocess calls are blocked by OpenSearch's seccomp-BPF system call filter.
+     * This handler uses OpenSearch's AccessController to execute process creation with the plugin's
+     * security permissions.
+     */
+    private static final ProcessHandler PROCESS_HANDLER =
+            command -> {
+                try {
+                    return org.opensearch.secure_sm.AccessController.doPrivilegedChecked(
+                            () -> {
+                                List<String> cmd = command.getCommand();
+                                ProcessBuilder pb = new ProcessBuilder(cmd);
+
+                                Map<String, String> env = command.getEnvironment();
+                                if (env != null) {
+                                    pb.environment().putAll(env);
+                                }
+
+                                pb.redirectErrorStream(command.isRedirectErrorStream());
+                                return pb.start();
+                            });
+                } catch (IOException e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new IOException("Failed to start process", e);
+                }
+            };
+
     static {
+        sharedEngine =
+                Engine.newBuilder()
+                        .allowExperimentalOptions(true)
+                        .option("engine.ShowInternalStackFrames", "true")
+                        .option("engine.PrintInternalStackTrace", "true")
+                        .build();
+
         // Extract VFS resources (Python packages, native extensions) to the cluster's temp
         // directory. OpenSearch sets java.io.tmpdir to a cluster-specific location that's writable
         // within the security manager constraints. Native libraries must be extracted to a real
@@ -57,8 +157,124 @@ public class ExecutionUtils {
         logger.info("Extracting GraalPy resources to: {}", resourcesDir.toAbsolutePath());
         try {
             GraalPyResources.extractVirtualFileSystemResources(vfs, resourcesDir);
+            // The VFS extraction strips execute permissions from binaries.
+            // patchelf needs execute permission because GraalPy runs it as a subprocess
+            // to modify SONAME in duplicated native libraries when IsolateNativeModules=true.
+            setExecutablePermissions(resourcesDir.resolve("venv/bin"));
         } catch (Exception e) {
             logger.error("CAN'T EXTRACT RESOURCES TO TARGET", e);
+        }
+    }
+
+    /**
+     * Creates the persistent context on the executor thread and pre-loads numpy. Blocks the calling
+     * thread until warmup completes. This should be called during node startup (createComponents).
+     */
+    public static void warmup() {
+        try {
+            pythonExecutor
+                    .submit(
+                            () -> {
+                                Context context = getOrCreatePersistentContext();
+                                context.eval("python", "import numpy");
+                                // Re-capture baseline to include numpy in the preserved set
+                                baselineKeys =
+                                        new HashSet<>(
+                                                context.getBindings("python").getMemberKeys());
+                                logger.info(
+                                        "Persistent context warmed up, baseline keys: {}",
+                                        baselineKeys.size());
+                            })
+                    .get();
+        } catch (Exception e) {
+            logger.warn("Warmup failed", e);
+        }
+    }
+
+    /**
+     * Shuts down the Python executor and closes the persistent context. Called during plugin
+     * shutdown.
+     */
+    public static void closeContextPool() {
+        logger.info("Shutting down persistent Python context");
+        pythonExecutor.shutdownNow();
+        Context ctx = persistentContext;
+        persistentContext = null;
+        if (ctx != null) {
+            try {
+                ctx.close();
+            } catch (Exception e) {
+                logger.warn("Error closing persistent context", e);
+            }
+        }
+        try {
+            sharedEngine.close();
+        } catch (Exception e) {
+            logger.warn("Error closing shared engine", e);
+        }
+    }
+
+    /**
+     * Sets executable permissions on all files in the given directory. This is needed because
+     * {@link GraalPyResources#extractVirtualFileSystemResources} does not preserve executable
+     * permissions from the VFS resources.
+     */
+    private static void setExecutablePermissions(Path binDir) {
+        if (!Files.isDirectory(binDir)) {
+            return;
+        }
+        try (var entries = Files.list(binDir)) {
+            entries.filter(Files::isRegularFile)
+                    .forEach(
+                            file -> {
+                                try {
+                                    Files.setPosixFilePermissions(
+                                            file, EnumSet.allOf(PosixFilePermission.class));
+                                } catch (IOException e) {
+                                    logger.warn(
+                                            "Failed to set execute permission on {}: {}",
+                                            file,
+                                            e.getMessage());
+                                }
+                            });
+        } catch (IOException e) {
+            logger.warn("Failed to list files in {}: {}", binDir, e.getMessage());
+        }
+    }
+
+    /**
+     * Gets or creates the persistent Python context. Only called from the executor thread. The
+     * context is normally created once during {@link #warmup()} and reused indefinitely.
+     */
+    private static Context getOrCreatePersistentContext() {
+        if (persistentContext == null) {
+            persistentContext = createContext();
+            baselineKeys = new HashSet<>(persistentContext.getBindings("python").getMemberKeys());
+            logger.info("Created persistent context, baseline keys: {}", baselineKeys.size());
+        }
+        return persistentContext;
+    }
+
+    /**
+     * Removes user-defined globals from the context, preserving baseline keys (system globals and
+     * pre-loaded modules like numpy). The module cache (sys.modules) is NOT cleared, so re-importing
+     * numpy in user scripts is instant.
+     */
+    private static void cleanupGlobals(Context context) {
+        if (baselineKeys == null) return;
+        try {
+            Value bindings = context.getBindings("python");
+            for (String key : new ArrayList<>(bindings.getMemberKeys())) {
+                if (!baselineKeys.contains(key) && !SYSTEM_GLOBALS.contains(key)) {
+                    try {
+                        bindings.removeMember(key);
+                    } catch (Exception e) {
+                        logger.trace("Could not remove binding '{}': {}", key, e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("Cleanup failed: {}", e.getMessage());
         }
     }
 
@@ -86,6 +302,7 @@ public class ExecutionUtils {
 
     private static Context createContext() {
         return GraalPyResources.contextBuilder(vfs)
+                .engine(sharedEngine)
                 .sandbox(SandboxPolicy.TRUSTED)
                 .allowHostAccess(HostAccess.ALL)
                 // The following options are necessary for importing 3-rd party
@@ -95,23 +312,21 @@ public class ExecutionUtils {
                 .allowCreateThread(true)
                 .allowNativeAccess(true)
                 .allowCreateProcess(true)
+                .processHandler(PROCESS_HANDLER)
+                // Allow access to environment variables so subprocesses can locate
+                // binaries like patchelf when isolating native modules
+                .allowEnvironmentAccess(EnvironmentAccess.INHERIT)
                 // Reference for Python context options:
                 // https://www.graalvm.org/python/docs/#python-context-options
                 .option(
                         "python.Executable",
                         String.format(
                                 Locale.ROOT, "%s/venv/bin/graalpy", resourcesDir.toAbsolutePath()))
-                // Set to true to allow multiple contexts to load shared native libraries
+                // Single persistent context — no need to isolate native modules since
+                // we only ever create one context at a time
                 .option("python.IsolateNativeModules", "false")
                 // Enable verbose warnings for debugging native extensions
                 .option("python.WarnExperimentalFeatures", "true")
-                // Show detailed stack traces for debugging
-                .option("engine.ShowInternalStackFrames", "true")
-                .option("engine.PrintInternalStackTrace", "true")
-                // The following two options help with debugging python execution & native extension
-                // loading:
-                // .option("log.python.capi.level", "FINE")
-                // .option("log.python.level", "FINE")
                 .build();
     }
 
@@ -124,35 +339,43 @@ public class ExecutionUtils {
             Double score) {
         SemanticAnalyzer analyzer = new SemanticAnalyzer(code + '\n');
         analyzer.checkSemantic();
-        final ExecutorService executor = threadPool.executor(ThreadPool.Names.GENERIC);
 
-        try (Context context = createContext()) {
-            final Future<Value> futureResult =
-                    executor.submit(() -> executeWorker(context, code, params, doc, ctx, score));
+        final Future<Object> futureResult =
+                pythonExecutor.submit(
+                        () -> {
+                            Context context = getOrCreatePersistentContext();
+                            cleanupGlobals(context);
+                            Value result = executeWorker(context, code, params, doc, ctx, score);
+                            return extractValueBeforeContextClose(result);
+                        });
 
-            try {
-                Value result = futureResult.get(TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
-
-                // Extract the value before closing the context
-                return extractValueBeforeContextClose(result);
-
-            } catch (TimeoutException e) {
-                // future.cancel is a forbidden API
-                FutureUtils.cancel(futureResult);
-                throw wrapWithScriptException(
-                        e,
-                        String.format(
-                                Locale.ROOT,
-                                "Script execution timed out after %d seconds",
-                                TIMEOUT_IN_SECONDS),
-                        code);
-            } catch (ExecutionException | InterruptedException e) {
-                throw wrapWithScriptException(e, code);
+        try {
+            return futureResult.get(TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            FutureUtils.cancel(futureResult);
+            // Interrupt the context to cancel the running Python code. Unlike close(true),
+            // interrupt() keeps the context usable for future requests — critical because
+            // with IsolateNativeModules=false, only the first context in the process can
+            // load native modules (numpy).
+            Context stuckContext = persistentContext;
+            if (stuckContext != null) {
+                try {
+                    stuckContext.interrupt(Duration.ofSeconds(10));
+                } catch (Exception ex) {
+                    logger.warn("Error interrupting context after timeout", ex);
+                }
             }
-        } catch (ScriptException e) {
-            // Throw script exception as is
-            throw e;
-        } catch (Exception e) {
+            throw wrapWithScriptException(
+                    e,
+                    String.format(
+                            Locale.ROOT,
+                            "Script execution timed out after %d seconds",
+                            TIMEOUT_IN_SECONDS),
+                    code);
+        } catch (ExecutionException e) {
+            throw wrapWithScriptException(e, code);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw wrapWithScriptException(e, code);
         }
     }
@@ -163,11 +386,11 @@ public class ExecutionUtils {
 
     private static ScriptException wrapWithScriptException(
             Exception e, String errorFmt, String code) {
-        List<String> stacktrace;
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
         e.printStackTrace(pw);
-        stacktrace = Arrays.stream(sw.toString().split("\\n")).map(String::trim).toList();
+        List<String> stacktrace =
+                Arrays.stream(sw.toString().split("\\n")).map(String::trim).toList();
         return new ScriptException(
                 String.format(Locale.ROOT, errorFmt, e.getMessage()),
                 e,
