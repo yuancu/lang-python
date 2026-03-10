@@ -190,6 +190,16 @@ public class ExecutionUtils {
             try {
                 long start = System.currentTimeMillis();
                 Context context = createContext();
+                // GraalPy's set_default_verify_paths() reads SSL_CERT_FILE and tries
+                // to load the PEM file via TruffleFile. If this fails (e.g. VFS can't
+                // read the host path), it silently swallows the error and leaves the
+                // SSL context with no CA certs — instead of falling through to Java's
+                // default truststore (which has valid CAs). Unsetting SSL_CERT_FILE
+                // forces GraalPy to use Java's truststore directly.
+                context.eval(
+                        "python",
+                        "import os; os.environ.pop('SSL_CERT_FILE', None);"
+                                + " os.environ.pop('SSL_CERT_DIR', None)");
                 context.eval("python", "import numpy");
                 resetContextState(context);
                 contextPool.offer(context);
@@ -303,6 +313,9 @@ public class ExecutionUtils {
                 .option(
                         "python.IsolateNativeModules",
                         String.valueOf(ISOLATE_NATIVE_MODULES_SUPPORTED))
+                // Use native POSIX backend so Python's socket module works,
+                // enabling urllib.request for HTTP calls from scripts.
+                .option("python.PosixModuleBackend", "native")
                 // Enable verbose warnings for debugging native extensions
                 .option("python.WarnExperimentalFeatures", "true")
                 .build();
@@ -353,6 +366,10 @@ public class ExecutionUtils {
             }
             try {
                 Context replacement = createContext();
+                replacement.eval(
+                        "python",
+                        "import os; os.environ.pop('SSL_CERT_FILE', None);"
+                                + " os.environ.pop('SSL_CERT_DIR', None)");
                 replacement.eval("python", "import numpy");
                 resetContextState(replacement);
                 contextPool.offer(replacement);
