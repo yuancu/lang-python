@@ -30,7 +30,7 @@ id 'java'
 id 'idea'
 id 'eclipse'
 id 'org.graalvm.buildtools.native' version '0.11.4'
-id 'org.graalvm.python' version '25.0.1'
+id 'org.graalvm.python' version '25.0.2'
 id 'io.freefair.lombok' version '9.1.0'
 id 'com.diffplug.spotless' version '8.1.0'
 }
@@ -48,7 +48,7 @@ version = opensearch_version - "-SNAPSHOT" + ".0"
 ext {
 graalVersion = '25.0.2'
 antlr4Version = '4.13.2'
-compilerVersion = '25.0.1'
+compilerVersion = '25.0.2'
 }
 
 dependencies {
@@ -57,6 +57,8 @@ dependencies {
 implementation "org.graalvm.polyglot:polyglot:$graalVersion"
 implementation "org.graalvm.python:python-resources:$graalVersion" // Core Python stdlib and resources
 implementation "org.graalvm.sdk:graal-sdk:$graalVersion"
+implementation "org.graalvm.sdk:nativeimage:$graalVersion" // Required by IOHelper for VirtualFileSystem on non-GraalVM JDKs
+implementation "org.graalvm.sdk:word:$graalVersion" // Transitive dependency of nativeimage (provides PointerBase)
 implementation "org.antlr:antlr4-runtime:$antlr4Version"
 }
 
@@ -143,6 +145,8 @@ if (System.getProperty("test.debug") != null) {
 
 testClusters.integTest {
 testDistribution = "INTEG_TEST"
+// Disable seccomp-BPF so patchelf can run as a subprocess during native module isolation
+setting 'bootstrap.system_call_filter', 'false'
 
 // This installs our plugin into the testClusters
 plugin(project.tasks.bundlePlugin.archiveFile)
@@ -233,6 +237,8 @@ tasks.named('yamlRestTest', RestIntegTestTask) {
 
 testClusters.yamlRestTest {
 	testDistribution = "ARCHIVE"
+	// Disable seccomp-BPF so patchelf can run as a subprocess during native module isolation
+	setting 'bootstrap.system_call_filter', 'false'
 	jvmArgs "--module-path=${pythonLauncherLibDir.get().asFile} --add-modules=${appendModuleNames} -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI --upgrade-module-path=${layout.buildDirectory.file("compiler.jar").get().asFile} --enable-native-access=org.graalvm.truffle,ALL-UNNAMED -Dtruffle.class.path.append=${pythonLauncherLibDir.get().asFile}"
 }
 
@@ -248,7 +254,7 @@ options.addStringOption('Xdoclint:all,-missing', '-quiet')
 
 graalPy {
 // optional: specify python packages to install. E.g. "numpy==1.24.3"
-packages = ["numpy==2.2.4"]
+packages = ["numpy==2.2.4", "patchelf==0.17.2.4"]
 // Using VFS (Virtual Filesystem) approach - resources embedded in JAR
 resourceDirectory = "GRAALPY-VFS/${opensearch_group}/${pluginName}"
 }
