@@ -20,6 +20,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.IndexScopedSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsFilter;
 import org.opensearch.core.action.ActionResponse;
@@ -57,7 +58,24 @@ public class PythonModulePlugin extends Plugin implements ScriptPlugin, ActionPl
     private static final Logger logger = LogManager.getLogger();
     private final SetOnce<PythonScriptEngine> pythonScriptEngine = new SetOnce<>();
 
+    /**
+     * Number of pre-warmed Python contexts in the pool. On Linux (IsolateNativeModules supported),
+     * defaults to 64. On macOS, defaults to 1 since only one context can load native modules.
+     * Requires a node restart to take effect.
+     */
+    public static final Setting<Integer> POOL_SIZE_SETTING =
+            Setting.intSetting(
+                    "script.python.context_pool_size",
+                    ExecutionUtils.DEFAULT_POOL_SIZE,
+                    1,
+                    Setting.Property.NodeScope);
+
     public PythonModulePlugin() {}
+
+    @Override
+    public List<Setting<?>> getSettings() {
+        return List.of(POOL_SIZE_SETTING);
+    }
 
     @Override
     public ScriptEngine getScriptEngine(Settings settings, Collection<ScriptContext<?>> contexts) {
@@ -82,9 +100,10 @@ public class PythonModulePlugin extends Plugin implements ScriptPlugin, ActionPl
         // This blocks node startup while contexts are created and patchelf isolates native
         // libraries. After warmup, contexts are reused without further subprocess creation.
         try {
-            logger.info("Starting Python engine warmup...");
+            int poolSize = POOL_SIZE_SETTING.get(environment.settings());
+            logger.info("Starting Python engine warmup (pool size: {})...", poolSize);
             long startTime = System.currentTimeMillis();
-            ExecutionUtils.warmup();
+            ExecutionUtils.warmup(poolSize);
             long duration = System.currentTimeMillis() - startTime;
             logger.info("Python engine warmed up successfully in {}ms", duration);
         } catch (Exception | ExceptionInInitializerError e) {

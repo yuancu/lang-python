@@ -71,11 +71,15 @@ public class ExecutionUtils {
             !System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("mac");
 
     /**
-     * Number of pre-warmed Python contexts to keep in the pool. On Linux,
+     * Default number of pre-warmed Python contexts to keep in the pool. On Linux,
      * IsolateNativeModules=true allows multiple contexts to load native libraries independently.
      * On macOS, only the first context can load native modules, so we use a pool of 1.
+     * Configurable via the {@code script.python.context_pool_size} node setting.
      */
-    static final int POOL_SIZE = ISOLATE_NATIVE_MODULES_SUPPORTED ? 2 : 1;
+    static final int DEFAULT_POOL_SIZE = ISOLATE_NATIVE_MODULES_SUPPORTED ? 2 : 1;
+
+    /** Actual pool size, set during {@link #warmup(int)}. */
+    private static int poolSize;
 
     /** Python global names that belong to the default module scope and must not be cleared. */
     private static final Set<String> SYSTEM_GLOBALS =
@@ -98,14 +102,14 @@ public class ExecutionUtils {
     private static final Engine sharedEngine;
 
     /** Pool of pre-warmed, reusable Python contexts with numpy already loaded. */
-    private static final LinkedBlockingQueue<Context> contextPool;
+    private static LinkedBlockingQueue<Context> contextPool;
 
     /**
      * Dedicated thread pool for Python script execution. Using a dedicated pool instead of the
      * GENERIC thread pool avoids thread pool starvation: calling threads (often GENERIC pool
      * threads) block on Future.get(), while Python work runs on these separate threads.
      */
-    private static final ExecutorService pythonExecutor;
+    private static ExecutorService pythonExecutor;
 
     /**
      * Custom ProcessHandler that creates subprocesses with elevated privileges. The default Truffle
@@ -146,20 +150,6 @@ public class ExecutionUtils {
                         .option("engine.ShowInternalStackFrames", "true")
                         .option("engine.PrintInternalStackTrace", "true")
                         .build();
-        contextPool = new LinkedBlockingQueue<>(POOL_SIZE);
-
-        AtomicInteger threadCount = new AtomicInteger();
-        pythonExecutor =
-                Executors.newFixedThreadPool(
-                        POOL_SIZE,
-                        r -> {
-                            Thread t =
-                                    new Thread(
-                                            r, "python-executor-" + threadCount.getAndIncrement());
-                            t.setDaemon(true);
-                            return t;
-                        });
-
         // Extract VFS resources (Python packages, native extensions) to the cluster's temp
         // directory. OpenSearch sets java.io.tmpdir to a cluster-specific location that's writable
         // within the security manager constraints. Native libraries must be extracted to a real
@@ -184,9 +174,30 @@ public class ExecutionUtils {
      * {@link #PROCESS_HANDLER}) once per context. After warmup, contexts are reused for requests
      * without further subprocess creation.
      */
-    public static void warmup() {
-        logger.info("Initializing context pool with {} contexts", POOL_SIZE);
-        for (int i = 0; i < POOL_SIZE; i++) {
+    public static void warmup(int configuredPoolSize) {
+        if (!ISOLATE_NATIVE_MODULES_SUPPORTED && configuredPoolSize > 1) {
+            logger.warn(
+                    "IsolateNativeModules not supported on this OS; capping pool size from {} to 1",
+                    configuredPoolSize);
+            configuredPoolSize = 1;
+        }
+        poolSize = configuredPoolSize;
+        contextPool = new LinkedBlockingQueue<>(poolSize);
+
+        AtomicInteger threadCount = new AtomicInteger();
+        pythonExecutor =
+                Executors.newFixedThreadPool(
+                        poolSize,
+                        r -> {
+                            Thread t =
+                                    new Thread(
+                                            r, "python-executor-" + threadCount.getAndIncrement());
+                            t.setDaemon(true);
+                            return t;
+                        });
+
+        logger.info("Initializing context pool with {} contexts", poolSize);
+        for (int i = 0; i < poolSize; i++) {
             try {
                 long start = System.currentTimeMillis();
                 Context context = createContext();
@@ -204,12 +215,12 @@ public class ExecutionUtils {
                 resetContextState(context);
                 contextPool.offer(context);
                 long elapsed = System.currentTimeMillis() - start;
-                logger.info("Context {}/{} warmed up in {}ms", i + 1, POOL_SIZE, elapsed);
+                logger.info("Context {}/{} warmed up in {}ms", i + 1, poolSize, elapsed);
             } catch (Exception e) {
-                logger.error("Failed to create context {}/{}", i + 1, POOL_SIZE, e);
+                logger.error("Failed to create context {}/{}", i + 1, poolSize, e);
             }
         }
-        logger.info("Context pool ready: {}/{} contexts available", contextPool.size(), POOL_SIZE);
+        logger.info("Context pool ready: {}/{} contexts available", contextPool.size(), poolSize);
     }
 
     /**
@@ -417,7 +428,7 @@ public class ExecutionUtils {
                     String.format(
                             Locale.ROOT,
                             "All %d Python contexts are busy, timed out after %d seconds",
-                            POOL_SIZE,
+                            poolSize,
                             TIMEOUT_IN_SECONDS),
                     code);
         }
