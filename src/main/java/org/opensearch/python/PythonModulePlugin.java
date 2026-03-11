@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -59,14 +60,23 @@ public class PythonModulePlugin extends Plugin implements ScriptPlugin, ActionPl
     private final SetOnce<PythonScriptEngine> pythonScriptEngine = new SetOnce<>();
 
     /**
+     * Whether the current OS supports IsolateNativeModules (requires ELF binary patching).
+     * Duplicated here (instead of referencing {@link ExecutionUtils}) to avoid triggering
+     * the heavy ExecutionUtils static initializer when this class is loaded in unit tests
+     * without the GraalPy runtime on the module path.
+     */
+    private static final boolean ISOLATE_NATIVE_MODULES_SUPPORTED =
+            !System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("mac");
+
+    /**
      * Number of pre-warmed Python contexts in the pool. On Linux (IsolateNativeModules supported),
-     * defaults to 64. On macOS, defaults to 1 since only one context can load native modules.
+     * defaults to 2. On macOS, defaults to 1 since only one context can load native modules.
      * Requires a node restart to take effect.
      */
     public static final Setting<Integer> POOL_SIZE_SETTING =
             Setting.intSetting(
                     "script.python.context_pool_size",
-                    ExecutionUtils.DEFAULT_POOL_SIZE,
+                    ISOLATE_NATIVE_MODULES_SUPPORTED ? 2 : 1,
                     1,
                     Setting.Property.NodeScope);
 

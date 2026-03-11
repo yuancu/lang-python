@@ -70,14 +70,6 @@ public class ExecutionUtils {
     private static final boolean ISOLATE_NATIVE_MODULES_SUPPORTED =
             !System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("mac");
 
-    /**
-     * Default number of pre-warmed Python contexts to keep in the pool. On Linux,
-     * IsolateNativeModules=true allows multiple contexts to load native libraries independently.
-     * On macOS, only the first context can load native modules, so we use a pool of 1.
-     * Configurable via the {@code script.python.context_pool_size} node setting.
-     */
-    static final int DEFAULT_POOL_SIZE = ISOLATE_NATIVE_MODULES_SUPPORTED ? 2 : 1;
-
     /** Actual pool size, set during {@link #warmup(int)}. */
     private static int poolSize;
 
