@@ -70,6 +70,24 @@ OpenSearchCon China 2026
 
 ![h:60](https://opensearch.org/assets/brand/SVG/Mark/opensearch_mark_default.svg)
 
+<!--
+Hi everyone. I'm Yuanchun Shen, and this is my colleague Shuang Li. We're here today to talk about something we've been exploring — running Python natively inside OpenSearch.
+
+We'll show you what it looks like, how it works under the hood, and where we think it can go from here.
+-->
+
+---
+
+# About Us
+
+- **Shen Yuanchun** & **Li Shuang** — Machine Learning Engineers, Shanghai OpenSearch Team
+- Our team builds both software and machine learning solutions on OpenSearch
+- Contributors: Yuanchun, Shuang, Charlie, and many from the Shanghai OpenSearch team
+
+<!--
+We're both machine learning engineers on the Shanghai OpenSearch team. Our team builds both software and machine learning solutions on OpenSearch. This project is a collaboration between us, Charlie, and many others from the team.
+-->
+
 ---
 
 # Why Python?
@@ -81,6 +99,14 @@ But most developers already know Python.
 <br>
 
 > What if you could write OpenSearch scripts in the language you already use every day?
+
+<!--
+So, if you've written custom scripts in OpenSearch, you've probably used Painless. Painless is the default scripting language. It's designed to be safe, and it's fast.
+
+But here's the thing — most of us don't write Painless day to day. We write Python. Our data pipelines are in Python. Our ML models are in Python. Our quick-and-dirty string processing? Also Python.
+
+So we asked ourselves: what if we could just use Python directly inside OpenSearch? Skip the context switch, skip learning a new language, and get access to the Python ecosystem at the same time.
+-->
 
 ---
 
@@ -101,9 +127,9 @@ return first + ' ' + last;
 
 **Python**
 ```python
-doc['first_name.keyword'][0]
+doc['first_name.keyword'].value
   + ' '
-  + doc['last_name.keyword'][0]
+  + doc['last_name.keyword'].value
 ```
 
 </div>
@@ -112,6 +138,14 @@ doc['first_name.keyword'][0]
 <br>
 
 Similar here. But what about **libraries**, **string methods**, **list comprehensions**?
+
+<!--
+Let's start with a comparison. Here's a common task — concatenating a first name and a last name from document fields.
+
+On the left, Painless. On the right, Python. They look pretty similar here, honestly. For simple tasks like this, Painless works fine.
+
+But notice — in Python, this is just how you'd normally write it. No special syntax to learn. And the real difference shows up when things get more complex.
+-->
 
 ---
 
@@ -151,6 +185,16 @@ Python is more concise — and this is still a simple case.
 
 What about regex, JSON parsing, NLP, calling an ML service?
 
+<!--
+Here's a slightly more interesting example. We want to compute an average rating from an array of numbers and multiply it by a parameter.
+
+In Painless, you need a manual for-loop — declare a variable, iterate, accumulate, divide. It's about seven lines.
+
+In Python, it's one line. sum, len, multiply. Done.
+
+And this is still a fairly simple case. Once you need regex, JSON parsing, HTTP calls, or anything from the Python standard library, the gap gets much wider. That's where this project really shines.
+-->
+
 ---
 
 # What We Built
@@ -165,6 +209,16 @@ A **Python Language Plugin** for OpenSearch
 <br>
 
 Let me show you.
+
+<!--
+So what did we actually build? It's a Python Language Plugin for OpenSearch.
+
+In OpenSearch, a script context defines where and how a script runs — it determines what data the script can access and what it's expected to return. So far we've built support for ingest, search, scoring, and field script contexts, with more on the way. You get the full Python standard library — math, json, re, collections — all built in. And we've also bundled NumPy as a proof of concept for third-party libraries.
+
+The plugin itself is about 1,400 lines of custom Java code. It's a small plugin, but it opens up a lot of possibilities.
+
+Alright, enough talking. Let my colleague Li Shuang show you how it works in action.
+-->
 
 ---
 
@@ -189,7 +243,15 @@ POST /_scripts/python/_execute
 
 **Standard library, no extra setup.** `math`, `json`, `re`, `collections` — all available.
 
-<!-- Live demo -->
+<!--
+[Shuang runs the demo on terminal]
+
+So this is the simplest thing we can do. Shuang is sending a POST request to the execute API with a small Python expression — import math; math.factorial(10).
+
+And we get back 3,628,800. That's Python running inside OpenSearch, in the JVM — not a subprocess, not a sidecar container. The standard library is just there.
+
+You can use json.dumps, re.match, collections.Counter — whatever you need. No extra setup.
+-->
 
 ---
 
@@ -211,7 +273,21 @@ arr = np.array(doc['ratings'], dtype=float)
 float(mean * (1 - std / 5) * np.log2(count + 1))
 ```
 
-<!-- Live demo: show both scoring approaches -->
+<!--
+[Shuang sets up the books index with 5 books and runs Part 1]
+
+Now let's do something more useful. We have a books index — each book has a title and an array of reader ratings.
+
+First, a simple approach — we store a Python script that computes the average rating and multiplies it by a parameter. One line of Python: sum, len, multiply. Shuang is running a function_score query with this script.
+
+The Great Gatsby gets 10, Dune gets 8.57, 1984 gets 8. Gatsby wins because it has all fives. Simple and intuitive.
+
+[Shuang runs Part 2 — NumPy scoring]
+
+But what if we want a smarter ranking? Maybe a book with seven ratings should rank higher than one with three, even if the average is slightly lower. We want to reward consistency and confidence.
+
+So here's a NumPy-powered scoring script. It uses np.mean, np.std, and np.log2 to compute a confidence-weighted score: higher mean is better, lower standard deviation gives a bonus, and more ratings increase confidence on a log scale.
+-->
 
 ---
 
@@ -227,6 +303,12 @@ float(mean * (1 - std / 5) * np.log2(count + 1))
 **Dune** jumps to #1 with NumPy — more ratings + consistency matters.
 
 NumPy makes complex ranking formulas readable: `np.mean`, `np.std`, `np.log2`.
+
+<!--
+And look at the difference — Dune jumps to number one. It has seven ratings with good consistency, so the confidence-weighted formula rewards it over Gatsby's perfect but small sample of three ratings. Fahrenheit 451 — all threes — also moves up because perfect consistency counts.
+
+This is the kind of ranking logic that would take dozens of lines in Painless — manual loops for mean and standard deviation, no built-in log function. With NumPy, it's readable and concise. And this is just one example — you could do cosine similarity, percentile calculations, outlier detection — things that are natural in NumPy but impractical in Painless.
+-->
 
 ---
 
@@ -252,7 +334,19 @@ resp = urllib.request.urlopen(req)
 json.loads(resp.read())['choices'][0]['message']['content']
 ```
 
-<!-- Live demo -->
+<!--
+[Shuang runs the OpenAI demo on terminal]
+
+Now here's where it gets really interesting. We have an index of trivia questions — just simple factual questions stored as documents.
+
+Shuang is running a search query with a Python script field. For each document, the script reads the question, calls OpenAI's chat completion API directly using urllib.request, parses the JSON response, and returns the answer — all at query time.
+
+The API key is passed via params, so it's never stored in OpenSearch. The script is pure Python standard library — json and urllib.request. No special SDK, no extra dependencies.
+
+[Shuang shows the results with AI answers]
+
+And there we go — each question now has an AI-generated answer as a script field. "What is the capital of France?" — "Paris." This pattern works for any external API — summarization, classification, translation, embeddings. In Painless, you simply can't make an HTTP call. In Python, it's natural.
+-->
 
 ---
 
@@ -274,6 +368,14 @@ json.loads(resp.read())['choices'][0]['message']['content']
 
 Python runs **inside the JVM** via GraalVM — no subprocess, no network call.
 
+<!--
+OK so you've seen what it does — let me explain how it works.
+
+When a Python script comes in, it goes through three stages. First, we parse it with Python AST written in ANTLR 4 — this catches syntax errors early. Then our semantic analyzer runs — this is a safety check, mainly looking for infinite loops. And finally, the script runs inside a GraalVM polyglot context.
+
+The key point is: Python runs inside the JVM. There's no external process, no network call to a Python runtime, no serialization overhead for passing data back and forth. Your document fields and query parameters are passed directly from Java into the Python runtime — no copying, no conversion.
+-->
+
 ---
 
 # GraalVM: The Key Enabler
@@ -294,28 +396,35 @@ try (Context context = Context.newBuilder("python")
 }
 ```
 
+<!--
+GraalVM is what makes this possible. Its polyglot API lets you embed multiple language runtimes in the same JVM process.
+
+We use GraalPy to evaluate user scripts. GraalPy is GraalVM's Python implementation. We pass in the document fields and query parameters so the Python script can access them directly, then extract the result. And every execution gets a fresh context — there's no shared state between calls.
+
+This code snippet here is a simplified version of what the plugin actually does. It's about five lines to set up and run a Python script. GraalVM handles the rest.
+-->
+
 ---
 
 # Safety: What Could Go Wrong?
 
-### Infinite loops → Static analysis + 20s timeout
-```python
-while True: pass   # ✗ Caught by semantic analyzer before execution
-while 1 == 1: pass # ✗ Killed after 20 seconds at runtime
-```
+| Threat | Mitigation |
+|--------|------------|
+| **Infinite loops** | Static analyzer catches `while True`; 20s timeout kills the rest |
+| **Resource abuse** | Fresh GraalVM context per call, disposed after; statement limits available |
+| **Data leakage** | Context isolation — scripts only see bindings passed in, no cross-execution state |
 
-### Resource consumption → Fresh context per execution
-- Each script gets a **new GraalVM context**, disposed immediately after
-- No accumulation between calls; timeout caps CPU usage
-- GraalVM also supports **per-context statement limits** and **stricter sandbox policies** — available for future adoption
+- Sandbox: **trusted** (for NumPy native extensions); stricter policies can further restrict host I/O and native access
 
-### Malicious code → Context isolation
-```python
-# Execution 1:  i = 10     → "i equals 10"
-# Execution 2:  print(i)   → NameError: 'i' is not defined  ✓
-```
-- No shared state between executions
-- Currently uses **trusted sandbox** (for NumPy) — designed for controlled environments
+<!--
+Now, running user-provided code inside your search engine — that raises some obvious questions. What if someone writes an infinite loop? What if a script consumes too many resources? What if it tries to steal your credentials?
+
+For infinite loops, we have two layers. A static analyzer catches obvious patterns like while True with no break before the script even runs. For trickier cases that slip past static analysis, there's a hard timeout — if a script doesn't finish, it gets killed.
+
+For resource consumption, each script gets a fresh GraalVM context that's disposed right after — nothing accumulates. GraalVM also supports per-context limits like statement caps and memory-constrained sandboxing, which we plan to enable as the plugin matures.
+
+For isolation, each script only sees the bindings explicitly passed in — like document fields and query parameters — and there's no shared state between executions. We currently use a trusted sandbox policy because NumPy requires native extensions, but stricter policies can further restrict host I/O and native access.
+-->
 
 ---
 
@@ -332,6 +441,12 @@ while 1 == 1: pass # ✗ Killed after 20 seconds at runtime
 <br>
 
 Each context exposes exactly the data the script needs — nothing more.
+
+<!--
+Here's a quick overview of the script contexts we support. Field scripts for computed fields at query time. Score scripts for custom ranking. Ingest scripts for document transformation during indexing. Search scripts for modifying search requests dynamically — think A/B testing or conditional query rewriting. And template scripts for testing via the execute API, which is what we used in the first demo.
+
+Each context gives the script access to exactly the variables it needs.
+-->
 
 ---
 
@@ -353,6 +468,16 @@ Each context exposes exactly the data the script needs — nothing more.
 - NumPy: bundled, working
 - Other packages: requires plugin rebuild to add
 
+<!--
+Let me be honest about the challenges.
+
+Performance — creating a GraalVM context has overhead. Python will be slower than Painless for simple operations. But this plugin is best suited for tasks where capability matters more than raw speed. If you're doing a simple field lookup, use Painless. If you need to call Bedrock or run NumPy — that's where Python earns its overhead.
+
+Security — we currently use a trusted sandbox policy. That's needed because libraries like NumPy use native C extensions. This means the plugin is appropriate for controlled environments today, not for running untrusted user code.
+
+Library support — the full standard library works. NumPy is bundled. But adding other packages currently requires rebuilding the plugin.
+-->
+
 ---
 
 # Performance: Pure Computation
@@ -368,6 +493,14 @@ Each context exposes exactly the data the script needs — nothing more.
 - Averaged on 10 executions, without caching; no document access
 - Best suited for tasks where **capability > raw speed**
 
+<!--
+Here are some benchmark numbers. We measured pure computation — no document I/O — using the execute API with a warmed context pool.
+
+Python is about 1.4 to 2.1x slower than Painless for basic operations like arithmetic, string manipulation, and Fibonacci. That's a very reasonable overhead.
+
+The takeaway: for simple operations, Painless is faster — that's expected. But the gap is not as dramatic as you might think, and for anything involving library calls, complex math, or external integrations, Python gives you capabilities that Painless simply doesn't have.
+-->
+
 ---
 
 # Roadmap
@@ -377,6 +510,12 @@ Each context exposes exactly the data the script needs — nothing more.
 - **Easier library management**: add packages without rebuilding
 - **Performance optimization**: pooling, script caching
 - **Community feedback**: what features matter most to you?
+
+<!--
+Looking ahead — we want to add more script contexts, like aggregation and similarity. We want to offer configurable sandboxing so users can choose their security tradeoff. We want to make it easier to add Python packages without rebuilding. And we want to further improve performance.
+
+But most importantly, we want to hear from you. What would you use this for? That feedback will shape where this goes next.
+-->
 
 ---
 
@@ -400,6 +539,12 @@ POST /_scripts/python/_execute
 
 Issues, PRs, and feedback welcome.
 
+<!--
+The plugin is open source on GitHub. You can build it with Gradle, install it like any OpenSearch plugin, and run your first Python script in about two minutes.
+
+We'd love for you to try it out, file issues, tell us what works and what doesn't. The link is on the slide, and we'll leave it up during Q&A.
+-->
+
 ---
 
 <!-- _paginate: false -->
@@ -417,3 +562,9 @@ OpenSearch Issue: #17432
 <br>
 
 Questions?
+
+<!--
+That's it from us. Thank you for listening. We're happy to take questions.
+
+[Q&A: 5 minutes. Yuanchun takes architecture/design questions, Shuang handles demo/usage questions.]
+-->
