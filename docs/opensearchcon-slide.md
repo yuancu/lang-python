@@ -1,61 +1,13 @@
 ---
 marp: true
-theme: default
+theme: opensearchcon
 paginate: true
-style: |
-  section {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
-    padding: 40px 60px;
-  }
-  h1 {
-    color: #003B5C;
-    font-size: 2.2em;
-  }
-  h2 {
-    color: #005EB8;
-    font-size: 1.6em;
-  }
-  code {
-    background: #f4f4f4;
-    border-radius: 4px;
-  }
-  pre {
-    background: #fafafa;
-    color: #333;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 20px;
-    font-size: 0.75em;
-  }
-  pre code {
-    background: transparent;
-    color: inherit;
-  }
-  table {
-    font-size: 0.85em;
-  }
-  .columns {
-    display: flex;
-    gap: 40px;
-  }
-  .col {
-    flex: 1;
-  }
-  .highlight {
-    color: #005EB8;
-    font-weight: bold;
-  }
-  .dimmed {
-    color: #888;
-    font-size: 0.85em;
-  }
-  footer {
-    color: #999;
-    font-size: 0.6em;
-  }
 ---
 
-<!-- _paginate: false -->
+<!--
+_paginate: false
+_class: cover
+-->
 
 # Python on OpenSearch
 
@@ -65,10 +17,6 @@ style: |
 
 **Yuanchun Shen & Shuang Li**
 OpenSearchCon China 2026
-
-<br>
-
-![h:60](https://opensearch.org/assets/brand/SVG/Mark/opensearch_mark_default.svg)
 
 <!--
 Hi everyone. I'm Yuanchun Shen, and this is my colleague Shuang Li. We're here today to talk about something we've been exploring — running Python natively inside OpenSearch.
@@ -221,8 +169,6 @@ Alright, enough talking. Let my colleague Li Shuang show you how it works in act
 -->
 
 ---
-
-<!-- _class: "" -->
 
 # Demo 1: Python Runs Inside OpenSearch
 
@@ -547,7 +493,10 @@ We'd love for you to try it out, file issues, tell us what works and what doesn'
 
 ---
 
-<!-- _paginate: false -->
+<!--
+_paginate: false
+_class: end
+-->
 
 # Thank You
 

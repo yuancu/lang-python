@@ -14,7 +14,13 @@ We'll show you what it looks like, how it works under the hood, and where we thi
 
 ---
 
-## Slide 2: Why Python? (0:30 – 1:30)
+## Slide 2: About Us (0:30 – 0:50)
+
+We're both machine learning engineers on the Shanghai OpenSearch team. Our team builds both software and machine learning solutions on OpenSearch. This project is a collaboration between us, Charlie, and many others from the team.
+
+---
+
+## Slide 3: Why Python? (0:50 – 1:50)
 
 So, if you've written custom scripts in OpenSearch, you've probably used Painless. Painless is the default scripting language. It's designed to be safe, and it's fast.
 
@@ -140,7 +146,7 @@ For infinite loops, we have two layers. A static analyzer catches obvious patter
 
 For resource consumption, each script gets a fresh GraalVM context that's disposed right after — nothing accumulates. GraalVM also supports per-context limits like statement caps and memory-constrained sandboxing, which we plan to enable as the plugin matures.
 
-For isolation, each execution is completely independent — no shared state, no information leaks between scripts. We currently use a trusted sandbox policy because NumPy requires native extensions, but if you don't need native libraries, you can switch to a stricter sandbox for tighter security.
+For isolation, each script only sees the bindings explicitly passed in — like document fields and query parameters — and there's no shared state between executions. We currently use a trusted sandbox policy because NumPy requires native extensions, but stricter policies can further restrict host I/O and native access.
 
 ---
 

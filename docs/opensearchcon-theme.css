@@ -1,0 +1,150 @@
+/* @theme opensearchcon */
+
+@import 'default';
+
+:root {
+  --color-navy: #003B5C;
+  --color-blue: #005EB8;
+}
+
+/* ===== Base section (all slides) ===== */
+section {
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  width: 1280px;
+  height: 720px;
+  padding: 0;
+  background: #ffffff;
+}
+
+section h1 {
+  color: var(--color-navy);
+  font-size: 1.6em;
+  font-weight: bold;
+}
+
+section h2 {
+  color: var(--color-blue);
+  font-size: 1.4em;
+}
+
+section code {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+section pre {
+  background: #fafafa;
+  color: #333;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 0.7em;
+}
+
+section pre code {
+  background: transparent;
+  color: inherit;
+}
+
+section table {
+  font-size: 0.85em;
+}
+
+/* ===== Content slides (default) ===== */
+section:not(.cover):not(.end) {
+  background-image: url('images/bg-content.svg');
+  background-size: 1280px 720px;
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: 110px 60px 40px 60px;
+}
+
+section:not(.cover):not(.end) h1 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 90px;
+  margin: 0;
+  padding: 20px 60px;
+  display: flex;
+  align-items: center;
+  font-size: 1.5em;
+  color: var(--color-navy);
+  background: transparent;
+}
+
+/* ===== Cover slide ===== */
+section.cover {
+  background-image: url('images/bg-cover.svg');
+  background-size: 1280px 720px;
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: 200px 60px 60px 60px;
+  justify-content: center;
+}
+
+section.cover h1 {
+  color: var(--color-navy);
+  font-size: 2.6em;
+  font-weight: bold;
+  margin: 0;
+  padding: 0;
+}
+
+section.cover h3 {
+  color: var(--color-navy);
+  font-weight: normal;
+  font-size: 1.1em;
+  margin-top: -10px;
+}
+
+section.cover p,
+section.cover strong {
+  color: var(--color-navy);
+}
+
+/* ===== End slide ===== */
+section.end {
+  background-image: url('images/bg-end.svg');
+  background-size: 1280px 720px;
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: 200px 60px 60px 60px;
+  justify-content: center;
+  text-align: left;
+}
+
+section.end h1 {
+  color: var(--color-navy);
+  font-size: 2.6em;
+  font-weight: bold;
+  margin: 0;
+  padding: 0;
+}
+
+section.end p,
+section.end strong,
+section.end a {
+  color: var(--color-navy);
+}
+
+/* ===== Utility classes ===== */
+.columns {
+  display: flex;
+  gap: 40px;
+}
+
+.col {
+  flex: 1;
+}
+
+.highlight {
+  color: var(--color-blue);
+  font-weight: bold;
+}
+
+.dimmed {
+  color: #888;
+  font-size: 0.85em;
+}
