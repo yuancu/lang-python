@@ -157,7 +157,7 @@ What about regex, JSON parsing, NLP, calling an ML service?
 
 A **Python Language Plugin** for OpenSearch
 
-- Write scripts in Python for **ingest**, **search**, **scoring**, and **field** contexts
+- Script contexts (where and how a script runs) supported so far: **ingest**, **search**, **scoring**, **field**
 - Use Python standard library: `math`, `json`, `re`, `collections`, ...
 - Import third-party libraries like **NumPy**
 - ~1,400 lines of custom code (the rest is generated grammar)
@@ -298,37 +298,24 @@ try (Context context = Context.newBuilder("python")
 
 # Safety: What Could Go Wrong?
 
-### Infinite loops
-
-<div class="columns">
-<div class="col">
-
-**Static analysis** (pre-execution)
+### Infinite loops → Static analysis + 20s timeout
 ```python
-while True:   # ✗ Caught by
-  pass        #   semantic analyzer
+while True: pass   # ✗ Caught by semantic analyzer before execution
+while 1 == 1: pass # ✗ Killed after 20 seconds at runtime
 ```
 
-</div>
-<div class="col">
+### Resource consumption → Fresh context per execution
+- Each script gets a **new GraalVM context**, disposed immediately after
+- No accumulation between calls; timeout caps CPU usage
+- GraalVM also supports **per-context statement limits** and **stricter sandbox policies** — available for future adoption
 
-**Timeout** (runtime backstop)
-```python
-while 1 == 1: # ✗ Killed after
-  pass        #   20 seconds
-```
-
-</div>
-</div>
-
-### Context isolation
+### Malicious code → Context isolation
 ```python
 # Execution 1:  i = 10     → "i equals 10"
-# Execution 2:  i = 20     → "i equals 20"
-# Execution 3:  print(i)   → NameError: 'i' is not defined  ✓
+# Execution 2:  print(i)   → NameError: 'i' is not defined  ✓
 ```
-
-No global state leaks between script executions.
+- No shared state between executions
+- Currently uses **trusted sandbox** (for NumPy) — designed for controlled environments
 
 ---
 
@@ -388,8 +375,8 @@ Each context exposes exactly the data the script needs — nothing more.
 - **More script contexts**: aggregation, similarity, and more
 - **Sandboxing options**: configurable security policies per use case
 - **Easier library management**: add packages without rebuilding
-- **Performance optimization**: context pooling, script caching
-- **Community feedback**: what contexts and features matter most to you?
+- **Performance optimization**: pooling, script caching
+- **Community feedback**: what features matter most to you?
 
 ---
 

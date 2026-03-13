@@ -50,11 +50,11 @@ And this is still a fairly simple case. Once you need regex, JSON parsing, HTTP 
 
 So what did we actually build? It's a Python Language Plugin for OpenSearch.
 
-It lets you write scripts in Python across four script contexts — ingest, search, scoring, and field scripts. You get the full Python standard library — math, json, re, collections — all built in. And we've also bundled NumPy as a proof of concept for third-party libraries.
+In OpenSearch, a script context defines where and how a script runs — it determines what data the script can access and what it's expected to return. So far we've built support for ingest, search, scoring, and field script contexts, with more on the way. You get the full Python standard library — math, json, re, collections — all built in. And we've also bundled NumPy as a proof of concept for third-party libraries.
 
-The plugin itself is about 1,400 lines of custom Java code. The rest is generated ANTLR grammar for Python parsing. It's a small plugin, but it opens up a lot of possibilities.
+The plugin itself is about 1,400 lines of custom Java code. It's a small plugin, but it opens up a lot of possibilities.
 
-Alright, enough talking. Let me show you. Shuang?
+Alright, enough talking. Let my colleague Li Shuang show you how it works in action.
 
 ---
 
@@ -116,9 +116,9 @@ And there we go — each question now has an AI-generated answer as a script fie
 
 OK so you've seen what it does — let me explain how it works.
 
-When a Python script comes in, it goes through three stages. First, we parse it with an ANTLR4 Python grammar — this catches syntax errors early. Then our semantic analyzer runs — this is a safety check, mainly looking for infinite loops. And finally, the script runs inside a GraalVM polyglot context.
+When a Python script comes in, it goes through three stages. First, we parse it with Python AST written in ANTLR 4 — this catches syntax errors early. Then our semantic analyzer runs — this is a safety check, mainly looking for infinite loops. And finally, the script runs inside a GraalVM polyglot context.
 
-The key point is: Python runs inside the JVM. There's no external process, no network call to a Python runtime, no serialization overhead for passing data back and forth. Java objects like `doc` and `params` are passed directly into the Python context.
+The key point is: Python runs inside the JVM. There's no external process, no network call to a Python runtime, no serialization overhead for passing data back and forth. Your document fields and query parameters are passed directly from Java into the Python runtime — no copying, no conversion.
 
 ---
 
@@ -126,7 +126,7 @@ The key point is: Python runs inside the JVM. There's no external process, no ne
 
 GraalVM is what makes this possible. Its polyglot API lets you embed multiple language runtimes in the same JVM process.
 
-We use GraalPy — GraalVM's Python implementation — to evaluate user scripts. We put Java objects like `doc` and `params` into the Python bindings, evaluate the script, and extract the result. And every execution gets a fresh context — there's no shared state between calls.
+We use GraalPy to evaluate user scripts. GraalPy is GraalVM's Python implementation. We pass in the document fields and query parameters so the Python script can access them directly, then extract the result. And every execution gets a fresh context — there's no shared state between calls.
 
 This code snippet here is a simplified version of what the plugin actually does. It's about five lines to set up and run a Python script. GraalVM handles the rest.
 
@@ -134,13 +134,13 @@ This code snippet here is a simplified version of what the plugin actually does.
 
 ## Slide 12: Safety (11:00 – 12:00)
 
-Now, running user-provided code inside your search engine — that raises some obvious questions. What if someone writes an infinite loop?
+Now, running user-provided code inside your search engine — that raises some obvious questions. What if someone writes an infinite loop? What if a script consumes too many resources? What if it tries to steal your credentials?
 
-We handle this at two levels. First, before execution, our semantic analyzer parses the code and catches obvious patterns like `while True` with no break statement. That's a static check — it's instant.
+For infinite loops, we have two layers. A static analyzer catches obvious patterns like `while True` with no break before the script even runs. For trickier cases that slip past static analysis, there's a hard timeout — if a script doesn't finish, it gets killed.
 
-But you can't catch everything statically. `while 1 == 1` is semantically the same as `while True`, but harder to detect at parse time. For cases like that, we have a hard timeout — if a script runs longer than 20 seconds, it gets killed.
+For resource consumption, each script gets a fresh GraalVM context that's disposed right after — nothing accumulates. GraalVM also supports per-context limits like statement caps and memory-constrained sandboxing, which we plan to enable as the plugin matures.
 
-We also tested context isolation carefully. If one script sets a variable `i` to 10, the next script cannot see it. Each execution is completely independent. No information leaks between scripts.
+For isolation, each execution is completely independent — no shared state, no information leaks between scripts. We currently use a trusted sandbox policy because NumPy requires native extensions, but if you don't need native libraries, you can switch to a stricter sandbox for tighter security.
 
 ---
 
@@ -156,7 +156,7 @@ Each context gives the script access to exactly the variables it needs.
 
 Let me be honest about the challenges.
 
-Performance — creating a GraalVM context has overhead. Python will be slower than Painless for simple operations. We mitigate cold start with engine warmup, but this plugin is best suited for tasks where capability matters more than raw speed. If you're doing a simple field lookup, use Painless. If you need to call Bedrock or run NumPy — that's where Python earns its overhead.
+Performance — creating a GraalVM context has overhead. Python will be slower than Painless for simple operations.But this plugin is best suited for tasks where capability matters more than raw speed. If you're doing a simple field lookup, use Painless. If you need to call Bedrock or run NumPy — that's where Python earns its overhead.
 
 Security — we currently use a trusted sandbox policy. That's needed because libraries like NumPy use native C extensions. This means the plugin is appropriate for controlled environments today, not for running untrusted user code.
 
@@ -176,9 +176,9 @@ The takeaway: for simple operations, Painless is faster — that's expected. But
 
 ## Slide 16: Roadmap (13:45 – 14:15)
 
-Looking ahead — we want to add more script contexts, like aggregation and similarity. We want to offer configurable sandboxing so users can choose their security tradeoff. We want to make it easier to add Python packages without rebuilding. And we want to improve performance with context pooling.
+Looking ahead — we want to add more script contexts, like aggregation and similarity. We want to offer configurable sandboxing so users can choose their security tradeoff. We want to make it easier to add Python packages without rebuilding. And we want to further improve performance.
 
-But most importantly, we want to hear from you. Which contexts matter most? What would you use this for? That feedback will shape where this goes next.
+But most importantly, we want to hear from you. What would you use this for? That feedback will shape where this goes next.
 
 ---
 
