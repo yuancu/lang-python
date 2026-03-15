@@ -19,9 +19,11 @@ _class: cover
 OpenSearchCon China 2026
 
 <!--
-Hi everyone. I'm Yuanchun Shen, and this is my colleague Shuang Li. We're here today to talk about something we've been exploring — running Python natively inside OpenSearch.
+Good morning everyone. I'm Yuanchun Shen, and this is my colleague Shuang Li. We're both machine learning engineers on the Shanghai OpenSearch team.
 
-We'll show you what it looks like, how it works under the hood, and where we think it can go from here.
+Today we want to talk about something we've been building — running Python natively inside OpenSearch. We'll show you why we think it's needed, how it works under the hood, and where we think it can go from here.
+
+But first, a quick intro of our team.
 -->
 
 ---
@@ -30,10 +32,10 @@ We'll show you what it looks like, how it works under the hood, and where we thi
 
 - **Shen Yuanchun** & **Li Shuang** — Machine Learning Engineers, Shanghai OpenSearch Team
 - Our team builds both software and machine learning solutions on OpenSearch
-- Contributors: Yuanchun, Shuang, Charlie, and many from the Shanghai OpenSearch team
+- Contributors: Yuanchun, Shuang, and many from the Shanghai OpenSearch team
 
 <!--
-We're both machine learning engineers on the Shanghai OpenSearch team. Our team builds both software and machine learning solutions on OpenSearch. This project is a collaboration between us, Charlie, and many others from the team.
+Our team builds both software and machine learning solutions on OpenSearch. This project is a collaboration between we two and many others from the Shanghai team. Now let's jump into the problem we're trying to solve.
 -->
 
 ---
@@ -116,11 +118,9 @@ A **Python Language Plugin** for OpenSearch
 Let me show you.
 
 <!--
-So what did we actually build? It's a Python Language Plugin for OpenSearch.
+So we built a Python Language Plugin for OpenSearch. Anywhere you'd normally write a Painless script, you can now write Python instead — during indexing, search, scoring, script fields, and more.
 
-In OpenSearch, a script context defines where and how a script runs — it determines what data the script can access and what it's expected to return. So far we've built support for ingest, search, scoring, and field script contexts, with more on the way. You get the full Python standard library — math, json, re, collections — all built in. And we've also bundled NumPy as a proof of concept for third-party libraries.
-
-The plugin itself is about 1,400 lines of custom Java code. It's a small plugin, but it opens up a lot of possibilities.
+And you get the full Python standard library — math, json, re, collections — all built in. We've also bundled NumPy as a proof of concept for third-party libraries.
 
 Alright, enough talking. Let my colleague Li Shuang show you how it works in action.
 -->
@@ -330,9 +330,9 @@ For isolation, each script only sees the bindings explicitly passed in — like 
 Each context exposes exactly the data the script needs — nothing more.
 
 <!--
-Here's a quick overview of the script contexts we support. Field scripts for computed fields at query time. Score scripts for custom ranking. Ingest scripts for document transformation during indexing. Search scripts for modifying search requests dynamically — think A/B testing or conditional query rewriting. And template scripts for testing via the execute API, which is what we used in the first demo.
+You've now seen Python used in scoring and script fields in the demos. But it works in more places. You can use it during indexing to transform documents, during search to modify queries, in scoring to customize ranking, and in script fields to compute values at query time.
 
-Each context gives the script access to exactly the variables it needs.
+These are what OpenSearch calls "script contexts" — they define where a script runs and what data it can access. We support four so far, with more on the way. And as you can see in the table, each context exposes exactly the variables the script needs — nothing more.
 -->
 
 ---
