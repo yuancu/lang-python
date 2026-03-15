@@ -38,46 +38,52 @@ We're both machine learning engineers on the Shanghai OpenSearch team. Our team 
 
 ---
 
-# Why Python?
+# Painless Is... Painful
 
-OpenSearch scripting today means **Painless** — a purpose-built language.
+OpenSearch scripting today means **Painless** — but in practice:
 
-But most developers already know Python.
-
-<br>
-
-> What if you could write OpenSearch scripts in the language you already use every day?
+- **Restrictive** — Java-like but not Java; strict allowlist blocks common operations
+- **Hard to debug** — cryptic errors, no REPL, no breakpoints
+- **Under-documented** — limited docs and examples
+- **No ecosystem** — cannot import libraries or call external services
 
 <!--
-So, if you've written custom scripts in OpenSearch, you've probably used Painless. Painless is the default scripting language. It's designed to be safe, and it's fast.
+If you've written custom scripts in OpenSearch, you've probably used Painless. It's the default scripting language, designed to be safe and fast.
 
-But here's the thing — most of us don't write Painless day to day. We write Python. Our data pipelines are in Python. Our ML models are in Python. Our quick-and-dirty string processing? Also Python.
+But in practice, Painless is painful. It looks like Java, but it's not Java — it's a restricted subset with a strict allowlist of methods. Common operations you'd expect, like String.split or regex, are either missing or require cluster-level settings to enable. The syntax has subtle differences from Java, so your existing knowledge only partially transfers.
 
-So we asked ourselves: what if we could just use Python directly inside OpenSearch? Skip the context switch, skip learning a new language, and get access to the Python ecosystem at the same time.
+Debugging is frustrating — error messages are vague and cryptic, and there's no REPL, no breakpoints, no way to print a variable. The documentation is sparse, with limited examples, so most developers resort to trial and error.
+
+And there's no ecosystem at all. No imports, no libraries, no HTTP calls. If the allowlist doesn't have what you need, you're stuck.
 -->
 
 ---
 
-# The Same Task: Painless vs Python
+# What if You Could Just Use Python?
 
 <div class="columns">
 <div class="col">
 
-**Painless**
+**Painless — extract error code**
 ```java
-String first = doc['first_name.keyword'].value;
-String last = doc['last_name.keyword'].value;
-return first + ' ' + last;
+String msg = doc['message.keyword'].value;
+int idx = msg.indexOf('error_code=');
+if (idx == -1) { return 'N/A'; }
+int end = msg.indexOf(',', idx);
+if (end == -1) { end = msg.length(); }
+return msg.substring(idx + 11, end);
 ```
 
 </div>
 <div class="col">
 
-**Python**
+**Python — extract error code**
 ```python
-doc['first_name.keyword'].value
-  + ' '
-  + doc['last_name.keyword'].value
+import re
+msg = doc['message.keyword'][0]
+match = re.search(
+    r'error_code=(E\d+)', msg)
+match.group(1) if match else 'N/A'
 ```
 
 </div>
@@ -85,62 +91,14 @@ doc['first_name.keyword'].value
 
 <br>
 
-Similar here. But what about **libraries**, **string methods**, **list comprehensions**?
+Python: familiar syntax, real regex, standard library, third-party packages.
 
 <!--
-Let's start with a comparison. Here's a common task — concatenating a first name and a last name from document fields.
+So we asked ourselves — what if we could just use Python?
 
-On the left, Painless. On the right, Python. They look pretty similar here, honestly. For simple tasks like this, Painless works fine.
+Look at this comparison. We want to extract an error code from a log message. In Painless, you're doing indexOf, substring, manual bounds checking — six lines of fragile string manipulation. In Python, it's a two-line regex. Import re, search for the pattern, done.
 
-But notice — in Python, this is just how you'd normally write it. No special syntax to learn. And the real difference shows up when things get more complex.
--->
-
----
-
-# When Painless Isn't Enough
-
-<div class="columns">
-<div class="col">
-
-**Painless**
-```java
-// Average ratings? Manual loop.
-double sum = 0;
-for (int i = 0;
-     i < doc['ratings'].length; i++) {
-  sum += doc['ratings'][i];
-}
-return sum / doc['ratings'].length
-         * params['multiplier'];
-```
-
-</div>
-<div class="col">
-
-**Python**
-```python
-sum(doc['ratings'])
-  / len(doc['ratings'])
-  * params['multiplier']
-```
-
-</div>
-</div>
-
-<br>
-
-Python is more concise — and this is still a simple case.
-
-What about regex, JSON parsing, NLP, calling an ML service?
-
-<!--
-Here's a slightly more interesting example. We want to compute an average rating from an array of numbers and multiply it by a parameter.
-
-In Painless, you need a manual for-loop — declare a variable, iterate, accumulate, divide. It's about seven lines.
-
-In Python, it's one line. sum, len, multiply. Done.
-
-And this is still a fairly simple case. Once you need regex, JSON parsing, HTTP calls, or anything from the Python standard library, the gap gets much wider. That's where this project really shines.
+And this is just the beginning. Python gives you the standard library — json, re, collections, math — plus third-party packages like NumPy. And the syntax is what most developers already write every day. No context switch, no new language to learn.
 -->
 
 ---
@@ -152,7 +110,6 @@ A **Python Language Plugin** for OpenSearch
 - Script contexts (where and how a script runs) supported so far: **ingest**, **search**, **scoring**, **field**
 - Use Python standard library: `math`, `json`, `re`, `collections`, ...
 - Import third-party libraries like **NumPy**
-- ~1,400 lines of custom code (the rest is generated grammar)
 
 <br>
 
@@ -170,44 +127,47 @@ Alright, enough talking. Let my colleague Li Shuang show you how it works in act
 
 ---
 
-# Demo 1: Python Runs Inside OpenSearch
+# Demo 1: Log Analysis with Python stdlib
 
-```bash
-POST /_scripts/python/_execute
-{
-  "script": {
-    "source": "import math; math.factorial(10)"
-  }
-}
+**Scenario**: Extract IPs, error codes, and parse embedded JSON from application logs
+
+**Case 1** — `re`: extract IPs and error codes from error logs
+
+```python
+import re
+msg = doc['message.keyword'][0]
+re.findall(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', msg)
 ```
 
-```json
-{ "result": "3628800" }
+**Case 2** — `json`: parse embedded JSON in log messages
+
+```python
+import json
+data = json.loads(doc['message.keyword'][0])
+f"{data['service']} v{data['version']} - {data['status']}"
 ```
-
-<br>
-
-**Standard library, no extra setup.** `math`, `json`, `re`, `collections` — all available.
 
 <!--
-[Shuang runs the demo on terminal]
+[Shuang runs the log analysis demo on terminal]
 
-So this is the simplest thing we can do. Shuang is sending a POST request to the execute API with a small Python expression — import math; math.factorial(10).
+Let's start with a real-world scenario — log analysis. We have an index of application logs: error messages with IPs and error codes, info messages, and even structured JSON embedded in text fields.
 
-And we get back 3,628,800. That's Python running inside OpenSearch, in the JVM — not a subprocess, not a sidecar container. The standard library is just there.
+First, Shuang extracts IP addresses and error codes from error logs using Python's re module. One regex, one line — re.findall pulls out all IPs, re.search grabs the error code. Try doing that in Painless without even having String.split available.
 
-You can use json.dumps, re.match, collections.Counter — whatever you need. No extra setup.
+Then for the deploy log, we parse embedded JSON directly. json.loads, access the fields, format a string. In Painless, parsing JSON inside a text field is essentially impossible — there's no JSON parser in the whitelist. In Python, it's three lines.
 -->
 
 ---
 
-# Demo 2: Custom Scoring with Python + NumPy
+# Demo 2: E-Commerce Ranking with NumPy
 
-**Part 1** — Simple scoring with Python stdlib:
+**Scenario**: Rank products by customer ratings — naive average vs confidence-weighted
+
+**Part 1** — Naive average scoring:
 
 ```python
-# Stored script: average rating × multiplier
-sum(doc['ratings']) / len(doc['ratings']) * params['multiplier']
+ratings = doc['ratings']
+sum(ratings) / len(ratings)
 ```
 
 **Part 2** — Confidence-weighted scoring with NumPy:
@@ -215,83 +175,85 @@ sum(doc['ratings']) / len(doc['ratings']) * params['multiplier']
 ```python
 import numpy as np
 arr = np.array(doc['ratings'], dtype=float)
+mean, std, count = np.mean(arr), np.std(arr), len(arr)
 # Higher mean + lower variance + more ratings = better
 float(mean * (1 - std / 5) * np.log2(count + 1))
 ```
 
 <!--
-[Shuang sets up the books index with 5 books and runs Part 1]
+[Shuang sets up the products index with 5 products and runs Part 1]
 
-Now let's do something more useful. We have a books index — each book has a title and an array of reader ratings.
+Now let's look at a real e-commerce scenario. We have a products index — headphones and earbuds, each with customer ratings.
 
-First, a simple approach — we store a Python script that computes the average rating and multiplies it by a parameter. One line of Python: sum, len, multiply. Shuang is running a function_score query with this script.
-
-The Great Gatsby gets 10, Dune gets 8.57, 1984 gets 8. Gatsby wins because it has all fives. Simple and intuitive.
+First, naive scoring — just average the ratings. One line of Python. The Budget Earbuds and Premium Headphones both score 5.0 because they have perfect ratings. But one has a single rating and the other has five — should we really trust them equally?
 
 [Shuang runs Part 2 — NumPy scoring]
 
-But what if we want a smarter ranking? Maybe a book with seven ratings should rank higher than one with three, even if the average is slightly lower. We want to reward consistency and confidence.
-
-So here's a NumPy-powered scoring script. It uses np.mean, np.std, and np.log2 to compute a confidence-weighted score: higher mean is better, lower standard deviation gives a bonus, and more ratings increase confidence on a log scale.
+So here's a smarter approach using NumPy. We compute a confidence-weighted score: np.mean for the average, np.std to penalize inconsistency, and np.log2 of the count to reward products with more reviews.
 -->
 
 ---
 
-# Demo 2: Results — Simple vs NumPy Scoring
+# Demo 2: Results — Naive vs Confidence-Weighted
 
-| Book | Ratings | Simple (×2) | NumPy Score |
-|------|---------|-------------|-------------|
-| The Great Gatsby | [5, 5, 5] | **10.0** | 10.0 |
-| Dune | [5,4,5,4,5,4,3] | 8.57 | **11.06** |
-| Fahrenheit 451 | [3, 3, 3, 3, 3] | 6.0 | 7.75 |
-| 1984 | [4, 3, 5] | 8.0 | 6.69 |
+| Product | Ratings | Naive Avg | NumPy Score |
+|---------|---------|-----------|-------------|
+| Premium Over-Ear | [5,5,5,5,5] | **5.0** | 12.93 |
+| Wireless NC | [5,4,5,4,5,4,5] | 4.57 | **13.13** |
+| Budget Earbuds | [5] | **5.0** | 5.0 |
+| Sports Earphones | [3,3,3,3,3] | 3.0 | 7.75 |
+| Studio Monitor | [4,3,5,2,1,5] | 3.33 | 5.75 |
 
-**Dune** jumps to #1 with NumPy — more ratings + consistency matters.
-
-NumPy makes complex ranking formulas readable: `np.mean`, `np.std`, `np.log2`.
+**Wireless NC Headphones** jumps to #1 — 7 consistent ratings outweigh a perfect but small sample.
 
 <!--
-And look at the difference — Dune jumps to number one. It has seven ratings with good consistency, so the confidence-weighted formula rewards it over Gatsby's perfect but small sample of three ratings. Fahrenheit 451 — all threes — also moves up because perfect consistency counts.
+And look at the results. The Wireless Noise-Canceling Headphones jump to number one — they have seven ratings with good consistency, so the confidence formula rewards them over the Premium Over-Ear's five perfect ratings. Meanwhile the Budget Earbuds drop — a single five-star rating simply isn't enough confidence.
 
-This is the kind of ranking logic that would take dozens of lines in Painless — manual loops for mean and standard deviation, no built-in log function. With NumPy, it's readable and concise. And this is just one example — you could do cosine similarity, percentile calculations, outlier detection — things that are natural in NumPy but impractical in Painless.
+This is the kind of ranking logic that would take dozens of lines in Painless — manual loops for mean and standard deviation, no built-in log function. With NumPy, it's readable and concise. You could also do cosine similarity, percentile calculations, outlier detection — things that are natural in NumPy but impractical in Painless.
 -->
 
 ---
 
-# Demo 3: AI-Powered Script Fields with OpenAI
+# Demo 3: AI-Augmented Support Tickets
 
-**Scenario**: Answer trivia questions at query time using OpenAI
+**Scenario**: Auto-generate support replies for open tickets using OpenAI
 
 ```python
-import json, urllib.request
+import json, os, urllib.request
 
-question = doc['question.keyword'][0]
+title = doc['title.keyword'][0]
+desc = doc['description.keyword'][0]
+prompt = f"Customer ticket: {title}\nDetails: {desc}\n"
+        + "Write a brief, helpful support reply."
+
 body = json.dumps({
     'model': 'gpt-4o-mini',
-    'messages': [{'role': 'user', 'content': question}],
-    'max_tokens': 50}).encode()
+    'messages': [
+        {'role': 'system', 'content': 'You are a helpful customer '
+         + 'support agent. Reply in 2-3 sentences.'},
+        {'role': 'user', 'content': prompt}],
+    'max_tokens': 100, 'temperature': 0}).encode()
 
 req = urllib.request.Request(
-    'https://api.openai.com/v1/chat/completions',
-    data=body,
-    headers={'Authorization': 'Bearer ' + params['api_key']}
-)
-resp = urllib.request.urlopen(req)
-json.loads(resp.read())['choices'][0]['message']['content']
+    'https://api.openai.com/v1/chat/completions', data=body,
+    headers={'Content-Type': 'application/json',
+             'Authorization': 'Bearer ' + os.environ['OPENAI_API_KEY']})
+result = json.loads(urllib.request.urlopen(req).read())
+result['choices'][0]['message']['content']
 ```
 
 <!--
-[Shuang runs the OpenAI demo on terminal]
+[Shuang runs the support ticket demo on terminal]
 
-Now here's where it gets really interesting. We have an index of trivia questions — just simple factual questions stored as documents.
+Now here's where it gets really interesting. We have an index of support tickets — password resets, billing issues, feature requests — each with a title, description, and priority.
 
-Shuang is running a search query with a Python script field. For each document, the script reads the question, calls OpenAI's chat completion API directly using urllib.request, parses the JSON response, and returns the answer — all at query time.
+Shuang is running a search query with a Python script field. For each open ticket, the script reads the title and description, calls OpenAI's chat completion API using urllib.request, and returns a suggested reply — all at query time.
 
-The API key is passed via params, so it's never stored in OpenSearch. The script is pure Python standard library — json and urllib.request. No special SDK, no extra dependencies.
+The API key comes from an environment variable, so it's never stored in OpenSearch. The script is pure Python standard library — json, os, and urllib.request. No SDK, no extra dependencies.
 
-[Shuang shows the results with AI answers]
+[Shuang shows the results with AI-generated replies]
 
-And there we go — each question now has an AI-generated answer as a script field. "What is the capital of France?" — "Paris." This pattern works for any external API — summarization, classification, translation, embeddings. In Painless, you simply can't make an HTTP call. In Python, it's natural.
+And there we go — each ticket now has a suggested reply. "Cannot reset my password" gets a helpful troubleshooting response. "Billing charged twice" gets an apology with a refund promise. This pattern works for any external API — summarization, classification, translation, sentiment analysis. In Painless, you simply can't make an HTTP call. In Python, it's natural.
 -->
 
 ---
@@ -398,12 +360,6 @@ Each context gives the script access to exactly the variables it needs.
 
 # Challenges
 
-### Performance
-- GraalVM context creation adds overhead per execution
-- Engine **warmup** at startup mitigates cold start
-- Python will be **slower than Painless** for simple operations
-- Best suited for tasks where **capability > raw speed**
-
 ### Security
 - Currently uses `TRUSTED` sandbox (needed for native extensions like NumPy)
 - No per-script memory limits yet
@@ -417,17 +373,16 @@ Each context gives the script access to exactly the variables it needs.
 <!--
 Let me be honest about the challenges.
 
-Performance — creating a GraalVM context has overhead. Python will be slower than Painless for simple operations. But this plugin is best suited for tasks where capability matters more than raw speed. If you're doing a simple field lookup, use Painless. If you need to call Bedrock or run NumPy — that's where Python earns its overhead.
-
 Security — we currently use a trusted sandbox policy. That's needed because libraries like NumPy use native C extensions. This means the plugin is appropriate for controlled environments today, not for running untrusted user code.
 
 Library support — the full standard library works. NumPy is bundled. But adding other packages currently requires rebuilding the plugin.
+
+Now let's talk about the elephant in the room — performance. This deserves a deeper look.
 -->
 
 ---
 
-# Performance: Pure Computation
-
+# Performance: Benchmarks
 
 | Scenario | Painless | Python | Ratio |
 |----------|----------|--------|-------|
@@ -436,29 +391,84 @@ Library support — the full standard library works. NumPy is bundled. But addin
 | Fibonacci(20) | 3.5 ms | 6.0 ms | 1.7x |
 | Array sort + sum (50 elem) | 2.8 ms | 5.2 ms | 1.9x |
 
-- Averaged on 10 executions, without caching; no document access
-- Best suited for tasks where **capability > raw speed**
+- Averaged over 10 executions; no document access
+- **1.4–2.1x** overhead — reasonable for the capabilities gained
 
 <!--
-Here are some benchmark numbers. We measured pure computation — no document I/O — using the execute API with a warmed context pool.
+Here are some benchmark numbers. Python is about 1.4 to 2.1x slower than Painless for pure computation. The gap is not 10x or 100x — it's manageable. And for anything involving regex, JSON parsing, NumPy, or HTTP calls, Python gives you capabilities that Painless simply doesn't have.
 
-Python is about 1.4 to 2.1x slower than Painless for basic operations like arithmetic, string manipulation, and Fibonacci. That's a very reasonable overhead.
+But why is it slower? Let's look at what's happening under the hood.
+-->
 
-The takeaway: for simple operations, Painless is faster — that's expected. But the gap is not as dramatic as you might think, and for anything involving library calls, complex math, or external integrations, Python gives you capabilities that Painless simply doesn't have.
+---
+
+# Why Is Python Slower? A Deeper Look
+
+The key difference is **how scripts get compiled and executed**:
+
+| | Painless | Python (GraalPy) |
+|--|----------|-------------------|
+| **Compilation** | Source → JVM bytecode directly (via ANTLR + ASM) | Source → Truffle AST → interpreted |
+| **First execution** | Runs as JVM bytecode immediately | Walks AST nodes with virtual dispatch |
+| **JIT optimization** | HotSpot C2 kicks in naturally | Truffle JIT needs **400+** invocations to start compiling |
+| **Context lifecycle** | Lightweight — compiled bytecode lives in JVM | Fresh GraalVM context created per execution |
+
+<!--
+So why is Python slower? It's not just "Python is slow" — there's a specific architectural reason.
+
+Painless compiles your script directly to JVM bytecode using ANTLR and ASM. The JVM treats it like any Java method. HotSpot's C2 compiler can optimize it using 25 years of JVM engineering. The first execution already runs optimized bytecode.
+
+GraalPy works differently. It parses your script into a Truffle AST — an abstract syntax tree — and walks it node by node. Each operation requires virtual dispatch. Truffle nodes start uninitialized and must specialize on first execution — detecting whether an add is int+int or string+string. This profiling is overhead that only pays off later.
+
+The Truffle JIT compiler needs at least 400 invocations before it even starts first-tier compilation, and 10,000 for full optimization. For a script that runs once per query, you're always in interpreter mode — paying the cost of profiling without getting the benefit.
+
+On top of that, while OpenSearch does cache our compiled script factories, the cached object is just the raw code string. We still create a fresh GraalVM context for every execution — initializing the Python runtime and setting up the module system every single time. That's where context pooling and engine sharing will make the biggest difference.
+-->
+
+---
+
+# Closing the Performance Gap
+
+We have a clear optimization path:
+
+- **Engine sharing** — reuse compiled code across contexts; JIT "remembers" optimizations
+- **Context pooling** — pre-warm contexts, amortize the ~100ms creation cost
+- **Source caching** — cache parsed ASTs for repeated scripts, skip re-parsing
+- **Truffle JIT warmup** — with pooled contexts, scripts hit JIT thresholds faster
+
+```
+Current:  [create context] → [init runtime] → [interpret] → [dispose]  (every call)
+Planned:  [reuse context]  → [JIT-compiled execution]                   (amortized)
+```
+
+These optimizations target the **context creation overhead** — the dominant cost on top of interpretation.
+
+<!--
+The good news is — we know exactly where the bottlenecks are, and GraalVM gives us the tools to fix them.
+
+First, engine sharing. Right now each context is independent. With a shared Engine, compiled machine code from one context carries over to the next. The JIT remembers its optimizations across context lifecycles.
+
+Second, context pooling. Instead of creating and destroying a context per request, we maintain a pool of pre-warmed contexts. This amortizes the roughly 100-millisecond initialization cost across many executions.
+
+Third, source caching. When the same stored script runs repeatedly, we can cache the parsed AST and skip re-parsing entirely.
+
+The benchmarks we showed already include warmup, so the 1.4–2.1x gap reflects the real interpreter overhead — not cold-start costs. But context creation is still a major cost that these optimizations will eliminate. We won't match Painless on raw computation, but we can significantly narrow the gap while offering capabilities Painless can't provide.
+
+These optimizations are our top priority for the next release.
 -->
 
 ---
 
 # Roadmap
 
+- **Performance**: engine sharing, context pooling, source caching (top priority)
 - **More script contexts**: aggregation, similarity, and more
 - **Sandboxing options**: configurable security policies per use case
 - **Easier library management**: add packages without rebuilding
-- **Performance optimization**: pooling, script caching
 - **Community feedback**: what features matter most to you?
 
 <!--
-Looking ahead — we want to add more script contexts, like aggregation and similarity. We want to offer configurable sandboxing so users can choose their security tradeoff. We want to make it easier to add Python packages without rebuilding. And we want to further improve performance.
+Looking ahead — performance optimization is our top priority. Engine sharing, context pooling, and source caching will significantly close the gap with Painless. We also want to add more script contexts like aggregation and similarity, offer configurable sandboxing so users can choose their security tradeoff, and make it easier to add Python packages without rebuilding.
 
 But most importantly, we want to hear from you. What would you use this for? That feedback will shape where this goes next.
 -->
@@ -500,17 +510,14 @@ _class: end
 
 # Thank You
 
-<br>
-
 **Yuanchun Shen & Shuang Li**
 
 GitHub: github.com/yuancu/lang-python
 OpenSearch Issue: #17432
 
-<br>
-<br>
-
 Questions?
+
+![feedback QR code w:150](feedback-qr-code.png) Scan to leave feedback
 
 <!--
 That's it from us. Thank you for listening. We're happy to take questions.
