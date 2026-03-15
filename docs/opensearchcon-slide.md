@@ -260,19 +260,7 @@ And there we go — each ticket now has a suggested reply. "Cannot reset my pass
 
 # How It Works
 
-```
-┌──────────────┐     ┌──────────────┐     ┌───────────────────┐
-│ Python Code  │────>│ ANTLR4       │────>│ Semantic          │
-│ (user script)│     │ Parser       │     │ Analyzer          │
-└──────────────┘     └──────────────┘     │ (loop detection)  │
-                                          └────────┬──────────┘
-                                                   │
-                                                   ▼
-┌─────────────┐     ┌──────────────┐     ┌──────────────────┐
-│ Result      │<────│ Extract      │<────│ GraalVM Polyglot │
-│ (to caller) │     │ Value        │     │ Context (Python) │
-└─────────────┘     └──────────────┘     └──────────────────┘
-```
+![How it works](images/how-it-works.svg)
 
 Python runs **inside the JVM** via GraalVM — no subprocess, no network call.
 
@@ -290,26 +278,17 @@ The key point is: Python runs inside the JVM. There's no external process, no ne
 
 **GraalVM Polyglot** allows multiple languages to coexist on the JVM.
 
-- Python code is interpreted by **GraalPy** (GraalVM's Python implementation)
-- Java objects (`doc`, `params`, `ctx`) are passed directly to Python — no serialization
-- Each script execution gets a **fresh, isolated context**
+![GraalVM Context](images/graalvm-context.svg)
 
-```java
-// Simplified: how the plugin executes Python
-try (Context context = Context.newBuilder("python")
-        .sandbox(SandboxPolicy.TRUSTED)
-        .build()) {
-    context.getBindings("python").putMember("doc", doc);
-    Value result = context.eval("python", userScript);
-}
-```
+- **GraalPy** interprets Python inside the JVM — no subprocess, no sidecar
+- Java objects passed directly to Python as **bindings** — no serialization
 
 <!--
 GraalVM is what makes this possible. Its polyglot API lets you embed multiple language runtimes in the same JVM process.
 
-We use GraalPy to evaluate user scripts. GraalPy is GraalVM's Python implementation. We pass in the document fields and query parameters so the Python script can access them directly, then extract the result. And every execution gets a fresh context — there's no shared state between calls.
+As you can see in the diagram, the GraalPy context lives inside the JVM, right alongside OpenSearch. Document fields, query parameters, and ingest context are passed directly into the Python runtime as bindings — no serialization, no copying. The script runs, and the result comes back out the same way.
 
-This code snippet here is a simplified version of what the plugin actually does. It's about five lines to set up and run a Python script. GraalVM handles the rest.
+Each execution gets a fresh, isolated context — there's no shared state between calls. GraalPy is GraalVM's Python implementation, so the full language and standard library are available.
 -->
 
 ---

@@ -1,0 +1,17 @@
+graph LR
+    subgraph JVM ["JVM / OpenSearch"]
+        direction LR
+        IN["doc, params, ctx"]
+        subgraph CTX ["GraalPy Context"]
+            SCRIPT["Python Script<br/>(user code)"]
+        end
+        OUT["Result"]
+        IN -- "bindings" --> SCRIPT
+        SCRIPT -- "return value" --> OUT
+    end
+
+    style JVM fill:#f0f0f0,stroke:#333,stroke-width:2px
+    style CTX fill:#fff3cd,stroke:#e6a817,stroke-width:2px
+    style SCRIPT fill:#fff,stroke:#e6a817
+    style IN fill:#d4edda,stroke:#28a745
+    style OUT fill:#d4edda,stroke:#28a745

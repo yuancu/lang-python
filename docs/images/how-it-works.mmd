@@ -1,0 +1,6 @@
+graph LR
+    A["Python Code<br/>(user script)"] --> B["ANTLR4<br/>Parser"]
+    B --> C["Static Semantic<br/>Analyzer"]
+    C --> D["GraalVM Polyglot<br/>Context (Python)"]
+    D --> E["Extract<br/>Value"]
+    E --> F["Result<br/>(to caller)"]
