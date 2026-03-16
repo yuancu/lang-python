@@ -15,11 +15,11 @@ _class: cover
 
 <br>
 
-**Yuanchun Shen & Shuang Li**
+**Shen Yuanchun & Li Shuang**
 OpenSearchCon China 2026
 
 <!--
-Good morning everyone. I'm Yuanchun Shen, and this is my colleague Shuang Li. We're both machine learning engineers on the Shanghai OpenSearch team.
+Good morning everyone. I'm Yuanchun, and this is my colleague Li Shuang. We're both machine learning engineers on the Shanghai OpenSearch team.
 
 Today we want to talk about something we've been building — running Python natively inside OpenSearch. We'll show you why we think it's needed, how it works under the hood, and where we think it can go from here.
 
@@ -269,7 +269,7 @@ OK so you've seen what it does — let me explain how it works.
 
 When a Python script comes in, it goes through three stages. First, we parse it with Python AST written in ANTLR 4 — this catches syntax errors early. Then our semantic analyzer runs — this is a safety check, mainly looking for infinite loops. And finally, the script runs inside a GraalVM polyglot context.
 
-The key point is: Python runs inside the JVM. There's no external process, no network call to a Python runtime, no serialization overhead for passing data back and forth. Your document fields and query parameters are passed directly from Java into the Python runtime — no copying, no conversion.
+The key point is: Python runs inside the JVM. There's no external process, no network call to a Python runtime, no serialization overhead for passing data back and forth.
 -->
 
 ---
@@ -281,14 +281,14 @@ The key point is: Python runs inside the JVM. There's no external process, no ne
 ![GraalVM Context](images/graalvm-context.svg)
 
 - **GraalPy** interprets Python inside the JVM — no subprocess, no sidecar
-- Java objects passed directly to Python as **bindings** — no serialization
+- Java objects passed directly to Python as **bindings**
 
 <!--
 GraalVM is what makes this possible. Its polyglot API lets you embed multiple language runtimes in the same JVM process.
 
 As you can see in the diagram, the GraalPy context lives inside the JVM, right alongside OpenSearch. Document fields, query parameters, and ingest context are passed directly into the Python runtime as bindings — no serialization, no copying. The script runs, and the result comes back out the same way.
 
-Each execution gets a fresh, isolated context — there's no shared state between calls. GraalPy is GraalVM's Python implementation, so the full language and standard library are available.
+GraalPy is GraalVM's Python implementation, so the full language and standard library are available.
 -->
 
 ---
@@ -297,20 +297,20 @@ Each execution gets a fresh, isolated context — there's no shared state betwee
 
 | Threat | Mitigation |
 |--------|------------|
-| **Infinite loops** | Static analyzer catches `while True`; 20s timeout kills the rest |
-| **Resource abuse** | Fresh GraalVM context per call, disposed after; statement limits available |
+| **Infinite loops** | Static analyzer catches `while True`; hard timeout kills the rest |
+| **Resource abuse** | Memory caps available; fresh GraalVM context per call, disposed after |
 | **Data leakage** | Context isolation — scripts only see bindings passed in, no cross-execution state |
 
-- Sandbox: **trusted** (for NumPy native extensions); stricter policies can further restrict host I/O and native access
+- GraalVM **sandbox policies** range from `TRUSTED` to `UNTRUSTED` — controlling host I/O, native access, and resource limits. We use TRUSTED for now.
 
 <!--
-Now, running user-provided code inside your search engine — that raises some obvious questions. What if someone writes an infinite loop? What if a script consumes too many resources? What if it tries to steal your credentials?
+Running user code inside your search engine — that raises some obvious questions.
 
-For infinite loops, we have two layers. A static analyzer catches obvious patterns like while True with no break before the script even runs. For trickier cases that slip past static analysis, there's a hard timeout — if a script doesn't finish, it gets killed.
+What if someone writes an infinite loop? A static analyzer catches obvious patterns like while True with no break. For trickier cases that slip past static analysis, there's a hard timeout — if a script doesn't finish, it gets killed.
+What if a script consumes too many resources? GraalVM also supports per-context limits like statement caps and memory-constrained sandboxing. Each script gets a fresh GraalVM context that's disposed right after — nothing accumulates.
+What if it tries to steal your credentials? The script only sees the bindings explicitly passed in — like document fields and query parameters — and there's no shared state between executions.
 
-For resource consumption, each script gets a fresh GraalVM context that's disposed right after — nothing accumulates. GraalVM also supports per-context limits like statement caps and memory-constrained sandboxing, which we plan to enable as the plugin matures.
-
-For isolation, each script only sees the bindings explicitly passed in — like document fields and query parameters — and there's no shared state between executions. We currently use a trusted sandbox policy because NumPy requires native extensions, but stricter policies can further restrict host I/O and native access.
+GraalVM provides built-in sandboxing, it establishes a security boundary between host and guest code. Policies range from TRUSTED to UNTRUSTED, progressively restricting file system, network, and native access. We use TRUSTED today for NumPy compatibility, with stricter policies on the roadmap.
 -->
 
 ---
@@ -319,10 +319,10 @@ For isolation, each script only sees the bindings explicitly passed in — like 
 
 | Context | Variables | Use Case |
 |---------|-----------|----------|
-| **Field** | `doc`, `params` | Computed fields at query time |
-| **Score** | `doc`, `params`, `_score` | Custom ranking and relevance tuning |
 | **Ingest** | `ctx`, `params` | Document transformation during indexing |
 | **Search** | `ctx`, `params` | Dynamic search request modification |
+| **Score** | `doc`, `params`, `_score` | Custom ranking and relevance tuning |
+| **Field** | `doc`, `params` | Computed fields at query time |
 | **Template** | `params` | Script testing via execute API |
 
 <br>
@@ -340,8 +340,7 @@ These are what OpenSearch calls "script contexts" — they define where a script
 # Challenges
 
 ### Security
-- Currently uses `TRUSTED` sandbox (needed for native extensions like NumPy)
-- No per-script memory limits yet
+- Only `TRUSTED` sandbox available for GraalVM community edition
 - Appropriate for **controlled environments** today
 
 ### Library Support
@@ -349,14 +348,17 @@ These are what OpenSearch calls "script contexts" — they define where a script
 - NumPy: bundled, working
 - Other packages: requires plugin rebuild to add
 
+### Performance
+- Next slide
+
 <!--
 Let me be honest about the challenges.
 
-Security — we currently use a trusted sandbox policy. That's needed because libraries like NumPy use native C extensions. This means the plugin is appropriate for controlled environments today, not for running untrusted user code.
+Security — we currently use a trusted sandbox policy. That's needed because libraries like NumPy use native C extensions. Also, this is the only policy that's available in graalvm community edition. This means the plugin is appropriate for controlled environments for now
 
 Library support — the full standard library works. NumPy is bundled. But adding other packages currently requires rebuilding the plugin.
 
-Now let's talk about the elephant in the room — performance. This deserves a deeper look.
+Now let's talk about performance. This deserves a deeper look.
 -->
 
 ---
@@ -381,73 +383,32 @@ But why is it slower? Let's look at what's happening under the hood.
 
 ---
 
-# Why Is Python Slower? A Deeper Look
+# Why Slower? How to Fix It?
 
-The key difference is **how scripts get compiled and executed**:
+**Painless** compiles to JVM bytecode directly — optimized from the start.
+**GraalPy** interprets via AST walking; JIT needs 400+ calls to kick in — short-lived scripts never reach it.
 
-| | Painless | Python (GraalPy) |
-|--|----------|-------------------|
-| **Compilation** | Source → JVM bytecode directly (via ANTLR + ASM) | Source → Truffle AST → interpreted |
-| **First execution** | Runs as JVM bytecode immediately | Walks AST nodes with virtual dispatch |
-| **JIT optimization** | HotSpot C2 kicks in naturally | Truffle JIT needs **400+** invocations to start compiling |
-| **Context lifecycle** | Lightweight — compiled bytecode lives in JVM | Fresh GraalVM context created per execution |
+Creating a fresh GraalVM context per execution brings overhead
 
-<!--
-So why is Python slower? It's not just "Python is slow" — there's a specific architectural reason.
-
-Painless compiles your script directly to JVM bytecode using ANTLR and ASM. The JVM treats it like any Java method. HotSpot's C2 compiler can optimize it using 25 years of JVM engineering. The first execution already runs optimized bytecode.
-
-GraalPy works differently. It parses your script into a Truffle AST — an abstract syntax tree — and walks it node by node. Each operation requires virtual dispatch. Truffle nodes start uninitialized and must specialize on first execution — detecting whether an add is int+int or string+string. This profiling is overhead that only pays off later.
-
-The Truffle JIT compiler needs at least 400 invocations before it even starts first-tier compilation, and 10,000 for full optimization. For a script that runs once per query, you're always in interpreter mode — paying the cost of profiling without getting the benefit.
-
-On top of that, while OpenSearch does cache our compiled script factories, the cached object is just the raw code string. We still create a fresh GraalVM context for every execution — initializing the Python runtime and setting up the module system every single time. That's where context pooling and engine sharing will make the biggest difference.
--->
-
----
-
-# Closing the Performance Gap
-
-We have a clear optimization path:
-
-- **Engine sharing** — reuse compiled code across contexts; JIT "remembers" optimizations
-- **Context pooling** — pre-warm contexts, amortize the ~100ms creation cost
-- **Source caching** — cache parsed ASTs for repeated scripts, skip re-parsing
-- **Truffle JIT warmup** — with pooled contexts, scripts hit JIT thresholds faster
-
-```
-Current:  [create context] → [init runtime] → [interpret] → [dispose]  (every call)
-Planned:  [reuse context]  → [JIT-compiled execution]                   (amortized)
-```
-
-These optimizations target the **context creation overhead** — the dominant cost on top of interpretation.
+- **Engine sharing** — reuse compiled code across contexts
+- **Context pooling** — pre-warm contexts, skip initialization overhead
+- **Source caching** — cache parsed ASTs for repeated scripts
 
 <!--
-The good news is — we know exactly where the bottlenecks are, and GraalVM gives us the tools to fix them.
-
-First, engine sharing. Right now each context is independent. With a shared Engine, compiled machine code from one context carries over to the next. The JIT remembers its optimizations across context lifecycles.
-
-Second, context pooling. Instead of creating and destroying a context per request, we maintain a pool of pre-warmed contexts. This amortizes the roughly 100-millisecond initialization cost across many executions.
-
-Third, source caching. When the same stored script runs repeatedly, we can cache the parsed AST and skip re-parsing entirely.
-
-The benchmarks we showed already include warmup, so the 1.4–2.1x gap reflects the real interpreter overhead — not cold-start costs. But context creation is still a major cost that these optimizations will eliminate. We won't match Painless on raw computation, but we can significantly narrow the gap while offering capabilities Painless can't provide.
-
-These optimizations are our top priority for the next release.
+So where's the gap from? Painless compiles directly to JVM bytecode with ASM — optimized from the start. GraalPy interprets via AST walking, and its JIT needs hundreds of invocations to kick in, so short-lived scripts will never reach it. On top of that, creating fresh contexts per execution also cause overhead. In the future, we will keep optimizing the performance via engine sharing, context pooling, and source caching.
 -->
 
 ---
 
 # Roadmap
 
-- **Performance**: engine sharing, context pooling, source caching (top priority)
+- **Performance**: optimizing with possibly engine sharing, context pooling, source caching
+- **Security enhancement**: configurable security policies per use case
 - **More script contexts**: aggregation, similarity, and more
-- **Sandboxing options**: configurable security policies per use case
-- **Easier library management**: add packages without rebuilding
 - **Community feedback**: what features matter most to you?
 
 <!--
-Looking ahead — performance optimization is our top priority. Engine sharing, context pooling, and source caching will significantly close the gap with Painless. We also want to add more script contexts like aggregation and similarity, offer configurable sandboxing so users can choose their security tradeoff, and make it easier to add Python packages without rebuilding.
+Looking ahead — performance optimization is our top priority. We'd also like to enhace security and offer configurable security options so users can choose their tradeoff. We also want to support more script contexts like aggregation and similarity, 
 
 But most importantly, we want to hear from you. What would you use this for? That feedback will shape where this goes next.
 -->
@@ -477,7 +438,7 @@ Issues, PRs, and feedback welcome.
 <!--
 The plugin is open source on GitHub. You can build it with Gradle, install it like any OpenSearch plugin, and run your first Python script in about two minutes.
 
-We'd love for you to try it out, file issues, tell us what works and what doesn't. The link is on the slide, and we'll leave it up during Q&A.
+We'd love for you to try it out, file issues, tell us what works and what doesn't.
 -->
 
 ---
@@ -489,7 +450,7 @@ _class: end
 
 # Thank You
 
-**Yuanchun Shen & Shuang Li**
+**Shen Yuanchun & Li Shuang**
 
 GitHub: github.com/yuancu/lang-python
 OpenSearch Issue: #17432
