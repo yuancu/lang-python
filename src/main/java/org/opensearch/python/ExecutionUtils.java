@@ -13,7 +13,6 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -252,7 +251,11 @@ public class ExecutionUtils {
                             file -> {
                                 try {
                                     Files.setPosixFilePermissions(
-                                            file, EnumSet.allOf(PosixFilePermission.class));
+                                            file,
+                                            Set.of(
+                                                    PosixFilePermission.OWNER_READ,
+                                                    PosixFilePermission.OWNER_WRITE,
+                                                    PosixFilePermission.OWNER_EXECUTE));
                                 } catch (IOException e) {
                                     logger.warn(
                                             "Failed to set execute permission on {}: {}",

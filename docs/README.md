@@ -188,7 +188,7 @@ The Python language plugin supports the following settings in `opensearch.yml`. 
 
 | Setting | Default | Description |
 |---|---|---|
-| `script.python.context_pool_size` | 64 (Linux), 1 (macOS) | Number of pre-warmed Python contexts in the pool. Each context has its own isolated copy of native libraries (e.g., numpy). More contexts allow higher concurrency but increase memory usage (~150 MB per context). On macOS, the pool is capped at 1 because native module isolation is not supported. |
+| `script.python.context_pool_size` | 2 (Linux), 1 (macOS) | Number of pre-warmed Python contexts in the pool. Each context has its own isolated copy of native libraries (e.g., numpy). More contexts allow higher concurrency but increase memory usage (~150 MB per context). On macOS, the pool is capped at 1 because native module isolation is not supported. |
 
 **Example:**
 
