@@ -9,18 +9,23 @@ Please consult the original template repository for more information on building
    ```bash
    ./gradlew assemble
    ```
-   The generated plugin zip should locate at `build/distributions/lang-python-3.2.0.0.zip`
-3. Download [opensearch-3.2.0 snapshot](https://artifacts.opensearch.org/snapshots/core/opensearch/3.2.0-SNAPSHOT/opensearch-min-3.2.0-SNAPSHOT-darwin-x64-latest.tar.gz) and unzip it. The linked binary is for MacOS.
+   The generated plugin zip should locate at `build/distributions/lang-python-3.4.0.0.zip`
+3. Download [opensearch-3.4.0 snapshot](https://artifacts.opensearch.org/snapshots/core/opensearch/3.4.0-SNAPSHOT/opensearch-min-3.4.0-SNAPSHOT-darwin-x64-latest.tar.gz) and unzip it. The linked binary is for MacOS.
 4. Set the `OPENSEARCH_JAVA_HOME` environment variable to point to GraalVM JDK's Java home.
 5. Change the directory to the unzipped OpenSearch directory.
 6. Install the plugin use the following command
     ```bash
-    ./bin/opensearch-plugin install file:///path/to/lang-ptyhon/build/distributions/lang-python-3.2.0.0.zip
+    ./bin/opensearch-plugin install file:///path/to/lang-ptyhon/build/distributions/lang-python-3.4.0.0.zip
     ```
 
 ## Run OpenSearch with the Plugin
 1. Set the `OPENSEARCH_JAVA_HOME` environment variable to point to GraalVM JDK's Java home.
-2. Start OpenSearch with the plugin installed:
+2. If installing in a binary distribution (not `./gradlew run`), add the following to `config/opensearch.yml`:
+   ```yaml
+   bootstrap.system_call_filter: false
+   ```
+   This is required because the plugin uses GraalPy's `IsolateNativeModules` feature, which runs `patchelf` as a subprocess to isolate native `.so` files across contexts. OpenSearch's default seccomp-BPF filter blocks `posix_spawn`, causing a `Permission denied` error at startup.
+3. Start OpenSearch with the plugin installed:
    ```bash
    ./bin/opensearch
    ```
